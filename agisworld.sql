@@ -45,12 +45,12 @@ create table avances(
 );
 
 alter table metodologias
-add column codigo_cursos varchar(5)
+add codigo_cursos varchar(5);
 
 alter table metodologias
 add constraint fk_curso
 FOREIGN KEY (codigo_cursos)
-references cursos(codigo)
+references cursos(codigo);
 
 create table certificaciones(
     codigo VARCHAR(5),
@@ -111,7 +111,7 @@ CREATE TABLE candidatos_habilidades (
 );
 
 --crear restricciones
-ALTER TABLE habilidades ADD COLUMN correo_candidato_distinguido VARCHAR(50);
+ALTER TABLE habilidades ADD correo_candidato_distinguido VARCHAR(50);
 ALTER TABLE habilidades ADD CONSTRAINT fk_habilidad_distinguido FOREIGN KEY (correo_candidato_distinguido) REFERENCES candidatos(correo);
 
 CREATE TABLE curso_habilidades(
@@ -294,4 +294,9 @@ INSERT INTO planesformacion (fecha, fechafin, estado, evaluador, correo_candidat
 -- Resultado esperado: error de violación de UNIQUE (maria.gomez@mail.com ya es evaluador del plan 1).
 
 
+
+select * from cursos;
+select * from metodologias;
+select * from cursos_metodologias;
+select * from habilidades; 
 

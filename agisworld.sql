@@ -1,5 +1,11 @@
 --agisworld
+-- CICLO 1: CRUD
 
+
+--=====================================================================
+-- ATRIBUTOS
+-- Creacion de la base de datos, tablas, columnas y restricciones de atributo
+--=====================================================================
 
 CREATE DATABASE agisworld;
 
@@ -13,7 +19,6 @@ create table cursos(
 create table metodologias(
     nombre_metodologia VARCHAR(50) PRIMARY KEY
 );
-
 
 create table cursos_metodologias(
     codigo_curso VARCHAR(5),
@@ -44,36 +49,21 @@ create table avances(
     tipo varchar(50)
 );
 
-alter table metodologias
-add codigo_cursos varchar(5);
-
-alter table metodologias
-add constraint fk_curso
-FOREIGN KEY (codigo_cursos)
-references cursos(codigo);
-
 create table certificaciones(
     codigo VARCHAR(5),
     vigencia INTEGER,
     valor INTEGER
 );
 
-alter table certificaciones
-add constraint ck_vigencia
-check(vigencia between 0 and 9)
-
-alter table certificaciones
-add constraint valor
-check(valor between 0 and 99999)
-
 create table candidatos(
     correo VARCHAR(50),
     nombres VARCHAR(50)
 );
 
+-- La PK de candidatos se define aqui porque las tablas siguientes la referencian
 alter table candidatos
 add constraint pk_correo
-PRIMARY KEY(correo)
+PRIMARY KEY(correo);
 
 create table tieneprioridad(
     prioridad VARCHAR(50)
@@ -96,10 +86,6 @@ create table notificaciones(
     lectura VARCHAR
 );
 
-alter table notificaciones
-add constraint pk_notificaciones
-PRIMARY KEY(id_notificacion)
--- relacion muchos a muchos relacion con habilidades y candidato
 CREATE TABLE candidatos_habilidades (
     correo_candidato VARCHAR(50),
     nombre_habilidad VARCHAR(50),
@@ -110,44 +96,94 @@ CREATE TABLE candidatos_habilidades (
         REFERENCES habilidades(nombreCorto)
 );
 
---crear restricciones
-ALTER TABLE habilidades ADD correo_candidato_distinguido VARCHAR(50);
-ALTER TABLE habilidades ADD CONSTRAINT fk_habilidad_distinguido FOREIGN KEY (correo_candidato_distinguido) REFERENCES candidatos(correo);
-
 CREATE TABLE curso_habilidades(
     codigo_curso VARCHAR(5),
     nombreCorto_habilidad VARCHAR(50),
     PRIMARY KEY(codigo_curso, nombreCorto_habilidad)
 );
-ALTER TABLE curso_habilidades ADD CONSTRAINT fk_cursohab_curso FOREIGN KEY (codigo_curso) REFERENCES cursos(codigo);
-ALTER TABLE curso_habilidades ADD CONSTRAINT fk_cursohab_habilidad FOREIGN KEY (nombreCorto_habilidad) REFERENCES habilidades(nombreCorto);
+
+-- Columnas adicionales
+ALTER TABLE habilidades ADD COLUMN correo_candidato_distinguido VARCHAR(50);
+
+alter table metodologias
+add column codigo_cursos varchar(5);
 
 ALTER TABLE planesformacion ADD COLUMN correo_candidato VARCHAR(50);
-ALTER TABLE planesformacion ADD CONSTRAINT fk_plan_candidato FOREIGN KEY (correo_candidato) REFERENCES candidatos(correo);
-ALTER TABLE planesformacion ADD CONSTRAINT fk_plan_evaluador FOREIGN KEY (evaluador) REFERENCES candidatos(correo);
 
 ALTER TABLE tieneprioridad ADD COLUMN nombreCorto_habilidad VARCHAR(50);
 ALTER TABLE tieneprioridad ADD COLUMN numero_plan INTEGER;
+
+ALTER TABLE avances ADD COLUMN id_avance SERIAL;
+ALTER TABLE avances ADD COLUMN numero_plan INTEGER;
+ALTER TABLE avances ADD COLUMN codigo_curso VARCHAR(5);
+
+ALTER TABLE candidatoesconexion RENAME COLUMN nombre TO correo_candidato_conexion;
+
+ALTER TABLE notificaciones ADD COLUMN id_avance INTEGER;
+
+create type Taccion As ENUM(
+    'Inscripcion','FinalizacionExito','FinalizacionFracaso','Abono'
+);
+alter table notificaciones alter column accion type Taccion Using accion:: Taccion;
+--revisar tipos en notificaciones
+
+-- Restricciones de atributo (CHECK)
+alter table certificaciones
+add constraint valor
+check(valor between 0 and 99999);
+
+alter table certificaciones
+add constraint ck_vigencia
+check(vigencia between 0 and 9);
+
+-- Verificacion de las tablas creadas
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_schema = 'public' 
+AND table_type = 'BASE TABLE';
+
+
+--=====================================================================
+-- TUPLAS
+-- Restricciones de tupla: llaves primarias y foraneas
+--=====================================================================
+
+--crear restricciones
+ALTER TABLE habilidades ADD CONSTRAINT fk_habilidad_distinguido FOREIGN KEY (correo_candidato_distinguido) REFERENCES candidatos(correo);
+
+ALTER TABLE curso_habilidades ADD CONSTRAINT fk_cursohab_curso FOREIGN KEY (codigo_curso) REFERENCES cursos(codigo);
+ALTER TABLE curso_habilidades ADD CONSTRAINT fk_cursohab_habilidad FOREIGN KEY (nombreCorto_habilidad) REFERENCES habilidades(nombreCorto);
+
+alter table notificaciones
+add constraint pk_notificaciones
+PRIMARY KEY(id_notificacion);
+
+alter table metodologias
+add constraint fk_curso
+FOREIGN KEY (codigo_cursos)
+references cursos(codigo);
+
+ALTER TABLE planesformacion ADD CONSTRAINT fk_plan_candidato FOREIGN KEY (correo_candidato) REFERENCES candidatos(correo);
+ALTER TABLE planesformacion ADD CONSTRAINT fk_plan_evaluador FOREIGN KEY (evaluador) REFERENCES candidatos(correo);
+
 ALTER TABLE tieneprioridad ADD CONSTRAINT fk_tieneprioridad_habilidad FOREIGN KEY (nombreCorto_habilidad) REFERENCES habilidades(nombreCorto);
 ALTER TABLE tieneprioridad ADD CONSTRAINT fk_tieneprioridad_plan FOREIGN KEY (numero_plan) REFERENCES planesformacion(numero);
 
-ALTER TABLE avances ADD COLUMN id_avance SERIAL;
 ALTER TABLE avances ADD CONSTRAINT pk_avance PRIMARY KEY (id_avance);
-ALTER TABLE avances ADD COLUMN numero_plan INTEGER;
-ALTER TABLE avances ADD COLUMN codigo_curso VARCHAR(5);
 ALTER TABLE avances ADD CONSTRAINT fk_avance_plan FOREIGN KEY (numero_plan) REFERENCES planesformacion(numero);
 ALTER TABLE avances ADD CONSTRAINT fk_avance_curso FOREIGN KEY (codigo_curso) REFERENCES cursos(codigo);
 
 ALTER TABLE certificaciones ADD CONSTRAINT fk_certificacion_curso FOREIGN KEY (codigo) REFERENCES cursos(codigo);
 
-ALTER TABLE candidatoesconexion RENAME COLUMN nombre TO correo_candidato_conexion;
 ALTER TABLE candidatoesconexion ADD CONSTRAINT fk_conexion_candidato FOREIGN KEY (correo_candidato) REFERENCES candidatos(correo);
 ALTER TABLE candidatoesconexion ADD CONSTRAINT fk_conexion_candidato2 FOREIGN KEY (correo_candidato_conexion) REFERENCES candidatos(correo);
 
-ALTER TABLE notificaciones ADD COLUMN id_avance INTEGER;
-ALTER TABLE notificaciones ADD CONSTRAINT fk_notificacion_avance FOREIGN KEY (id_avance) REFERENCES avances(id_avance);
---revisar tipos en notificaciones
+--=====================================================================
+-- TUPLAS OK
+-- Poblar la base de datos con tuplas validas
+--=====================================================================
 
+--PoblarOK
 
 INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
 ('C001', 'Modelado UML', 'Fundamentos de modelado con UML', FALSE),
@@ -242,7 +278,14 @@ INSERT INTO notificaciones (id_notificacion, fecha_generacion, accion, asunto, d
 
 -- Los datos para poblar la base de datos fueron creador con inteligencia artificial
 
---
+
+--=====================================================================
+-- TUPLAS NO OK
+-- Tuplas que NO deberian aceptarse
+--=====================================================================
+
+--TuplasOK
+-- Casos que violan reglas de negocio pero la base de datos los acepta (falta proteccion)
 
 -- Caso 1: Notificacion leida antes de ser generada
 -- Regla de negocio (caso de uso Modificar, punto 2): "la fecha de lectura debe ser
@@ -269,10 +312,6 @@ INSERT INTO avances (fecha, tipo, numero_plan, codigo_curso) VALUES
 -- Se inserta con un tipo que no pertenece al dominio del caso de estudio.
 
 
-
-
-
-
 --Casos que ilustran la proteccion de integridad de la base de datos
 
 -- Caso 1: No se viola integridad (FK avances -> cursos)
@@ -294,9 +333,50 @@ INSERT INTO planesformacion (fecha, fechafin, estado, evaluador, correo_candidat
 -- Resultado esperado: error de violación de UNIQUE (maria.gomez@mail.com ya es evaluador del plan 1).
 
 
+--=====================================================================
+-- ACCIONES
+--=====================================================================
 
-select * from cursos;
-select * from metodologias;
-select * from cursos_metodologias;
-select * from habilidades; 
+-- (pendiente)
+
+
+--=====================================================================
+-- ACCIONES OK
+--=====================================================================
+
+-- (pendiente)
+
+
+--=====================================================================
+-- DISPARADORES
+--=====================================================================
+
+-- (pendiente)
+
+
+--=====================================================================
+-- DISPARADORES OK
+--=====================================================================
+
+-- (pendiente)
+
+
+--=====================================================================
+-- DISPARADORES NO OK
+--=====================================================================
+
+-- (pendiente)
+
+
+--=====================================================================
+-- XDISPARADORES
+--=====================================================================
+
+-- (pendiente)
+
+
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_schema = 'public' 
+AND table_type = 'BASE TABLE';
 

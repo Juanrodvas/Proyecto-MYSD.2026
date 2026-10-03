@@ -118,8 +118,9 @@ ALTER TABLE candidatoesconexion RENAME COLUMN nombre TO correo_candidato_conexio
 ALTER TABLE notificaciones ADD COLUMN id_avance INTEGER;
 
 create type Taccion As ENUM(
-    'Inscripcion','FinalizacionExito','FinalizacionFracaso','Abono'
+    'Inscripcion','FinalizacionExito','FinalizacionFracaso','Abandono'
 );
+
 alter table notificaciones alter column accion type Taccion Using accion:: Taccion;
 --revisar tipos en notificaciones
 
@@ -171,10 +172,9 @@ ALTER TABLE certificaciones ADD CONSTRAINT fk_certificacion_curso FOREIGN KEY (c
 ALTER TABLE candidatoesconexion ADD CONSTRAINT fk_conexion_candidato FOREIGN KEY (correo_candidato) REFERENCES candidatos(correo);
 ALTER TABLE candidatoesconexion ADD CONSTRAINT fk_conexion_candidato2 FOREIGN KEY (correo_candidato_conexion) REFERENCES candidatos(correo);
 
---=====================================================================
--- TUPLAS OK
--- Poblar la base de datos con tuplas validas
---=====================================================================
+
+--TUPLAS OK
+
 
 --PoblarOK
 

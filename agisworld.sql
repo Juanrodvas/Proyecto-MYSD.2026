@@ -1,7 +1,7 @@
 --agisworld
 -- CICLO 1: CRUD
 
-
+drop database agisworld;
 
 CREATE DATABASE agisworld;
 
@@ -269,11 +269,11 @@ INSERT INTO candidatoesconexion (correo_candidato, correo_candidato_conexion) VA
 ('ana.lopez@mail.com', 'luis.torres@mail.com');
 
 INSERT INTO notificaciones (id_notificacion, fecha_generacion, accion, asunto, destinatario, mensaje, detalle_notificacion, fecha_lectura, lectura, id_avance) VALUES
-(1, '2025-01-12', 'Inscripcion', 'Inscripcion-2025-01-ModeladoUML', 'maria.gomez@mail.com', 'Se registro una inscripcion en el curso Modelado UML', 'Avance de plan de formacion', '2025-01-13', 'si', 1),
-(2, '2025-02-20', 'Inscripcion', 'Inscripcion-2025-02-LiderazgoAgil', 'carlos.ruiz@mail.com', 'Se registro una inscripcion en el curso Liderazgo Agil', 'Avance de plan de formacion', NULL, 'no', 2),
-(3, '2025-06-10', 'FinalizacionExito', 'Finalizacion-2025-06-LiderazgoAgil', 'carlos.ruiz@mail.com', 'El candidato finalizo con exito el curso Liderazgo Agil', 'Avance de plan de formacion', '2025-06-11', 'si', 3),
-(4, '2025-03-05', 'Inscripcion', 'Inscripcion-2025-03-MachineLearning', 'juan.perez@mail.com', 'Se registro una inscripcion en el curso Machine Learning', 'Avance de plan de formacion', '2025-03-06', 'si', 4),
-(5, '2025-04-25', 'Abandono', 'Abandono-2025-04-BasesDeDatos', 'ana.lopez@mail.com', 'El candidato abandono el curso Bases de Datos', 'Avance de plan de formacion', NULL, 'no', 5);
+(1, '2025-01-12', 'Inscripcion', 'Inscripcion-2025-01-ModeladoUML', 'maria.gomez@mail.com', 'Inscripcion en el curso Modelado UML', 'Avance de plan de formacion', '2025-01-13', 'si', 1),
+(2, '2025-02-20', 'Inscripcion', 'Inscripcion-2025-02-LiderazgoAgil', 'carlos.ruiz@mail.com', 'Inscripcion en el curso Liderazgo Agil', 'Avance de plan de formacion', NULL, 'no', 2),
+(3, '2025-06-10', 'FinalizacionExito', 'Finalizacion-2025-06-LiderazgoAgil', 'carlos.ruiz@mail.com', 'Finalizacion con exito del curso Liderazgo Agil', 'Avance de plan de formacion', '2025-06-11', 'si', 3),
+(4, '2025-03-05', 'Inscripcion', 'Inscripcion-2025-03-MachineLearning', 'juan.perez@mail.com', 'Inscripcion en el curso Machine Learning', 'Avance de plan de formacion', '2025-03-06', 'si', 4),
+(5, '2025-04-25', 'Abandono', 'Abandono-2025-04-BasesDeDatos', 'ana.lopez@mail.com', 'Abandono del curso Bases de Datos', 'Avance de plan de formacion', NULL, 'no', 5);
 
 -- Los datos para poblar la base de datos fueron creador con inteligencia artificial
 
@@ -505,7 +505,7 @@ FOR EACH ROW EXECUTE FUNCTION fn_plan_bu();
 
 CREATE OR REPLACE FUNCTION fn_plan_bu() RETURNS TRIGGER AS $$
 BEGIN
-    -- Transiciones validas de estado
+
     IF NEW.estado IS DISTINCT FROM OLD.estado THEN
         IF NOT (
             (OLD.estado = 'Diseño'    AND NEW.estado = 'Ejecucion') OR
@@ -515,13 +515,13 @@ BEGIN
         END IF;
     END IF;
 
-    -- Excepcion: paso a un estado final
+
     IF NEW.estado IN ('Aprobado', 'No aprobado')
     AND OLD.estado NOT IN ('Aprobado', 'No aprobado') THEN
         RETURN NEW;
     END IF;
 
-    -- Resto de modificaciones: solo en enero y en estado Diseño
+
     IF TO_CHAR(CURRENT_DATE, 'MM') <> '01' OR OLD.estado <> 'Diseño' THEN
         RAISE EXCEPTION 'Solo se puede modificar en enero y mientras el plan este en Diseño';
     END IF;
@@ -553,8 +553,10 @@ UPDATE planesformacion SET fecha = '2025-01-20' WHERE numero = 3;
 Drop trigger if exists tg_plan_bu ON planesformacion
 
 
+
 SELECT table_name 
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
 AND table_type = 'BASE TABLE';
 
+select * from notificaciones;

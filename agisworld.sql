@@ -560,3 +560,5 @@ WHERE table_schema = 'public'
 AND table_type = 'BASE TABLE';
 
 select * from notificaciones;
+
+drop database agisworld;

@@ -2,10 +2,6 @@
 -- CICLO 1: CRUD
 
 
---=====================================================================
--- ATRIBUTOS
--- Creacion de la base de datos, tablas, columnas y restricciones de atributo
---=====================================================================
 
 CREATE DATABASE agisworld;
 
@@ -102,7 +98,7 @@ CREATE TABLE curso_habilidades(
     PRIMARY KEY(codigo_curso, nombreCorto_habilidad)
 );
 
--- Columnas adicionales
+--Acciones
 ALTER TABLE habilidades ADD COLUMN correo_candidato_distinguido VARCHAR(50);
 
 alter table metodologias
@@ -143,10 +139,7 @@ WHERE table_schema = 'public'
 AND table_type = 'BASE TABLE';
 
 
---=====================================================================
--- TUPLAS
--- Restricciones de tupla: llaves primarias y foraneas
---=====================================================================
+
 
 --crear restricciones
 ALTER TABLE habilidades ADD CONSTRAINT fk_habilidad_distinguido FOREIGN KEY (correo_candidato_distinguido) REFERENCES candidatos(correo);
@@ -278,11 +271,6 @@ INSERT INTO notificaciones (id_notificacion, fecha_generacion, accion, asunto, d
 
 -- Los datos para poblar la base de datos fueron creador con inteligencia artificial
 
-
---=====================================================================
--- TUPLAS NO OK
--- Tuplas que NO deberian aceptarse
---=====================================================================
 
 --TuplasOK
 -- Casos que violan reglas de negocio pero la base de datos los acepta (falta proteccion)

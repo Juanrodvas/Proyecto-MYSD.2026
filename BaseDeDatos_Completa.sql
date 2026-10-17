@@ -609,3 +609,118 @@ VALUES ('Changua', 20, NULL, 'leche, huevo, cebolla larga, cilantro, pan');
 -- DROP TABLE IF EXISTS Causas_desperdicio CASCADE;
 -- DROP TABLE IF EXISTS Ingredientes CASCADE;
 -- DROP TABLE IF EXISTS Proveedores CASCADE;
+
+-----------------
+--AccionesOK--
+--1--
+INSERT INTO Empleados(id_empleado, nombre, salario)
+VALUES(99, jhojan, 2000);
+ 
+INSERT INTO Cocineros(id_empleado, Especialidad)
+VALUES(99, reposteria);
+
+SELECT * FROM Cocineros WHERE id_empleado=99;
+
+DELETE FROM Empleados WHERE id_empleado=99;
+
+SELECT * FROM Cocineros WHERE id_empleado=99;
+
+--2--
+INSERT INTO Empleados(id_empleado, nombre, salario)
+VALUES(109, JUAN, 4000);
+ 
+INSERT INTO Meseros(id_empleado, turno)
+VALUES(109, Noche);
+
+SELECT * FROM Meseros WHERE id_empleado=109;
+
+DELETE FROM Empleados WHERE id_empleado=109;
+
+SELECT * FROM Meseros WHERE id_empleado=109;
+
+--3--
+INSERT INTO Ingredientes(id_ingrediente, Fecha_vencimiento)
+VALUES(00009, 17/07/2030);
+ 
+INSERT INTO Inventarios(id_ingrediente, cantidad)
+VALUES(00009, 150);
+
+SELECT * FROM Inventarios WHERE id_empleado=00009;
+
+DELETE FROM Ingredientes WHERE id_empleado=00009;
+
+SELECT * FROM Inventarios WHERE id_empleado=00009;
+
+---------DisparadoresOK--------------
+---Disparador 1: un cocinero no puede ser mesero
+CREATE OR REPLACE FUNCTION f_cocinero_no_mesero() RETURNS TRIGGER AS $$
+DECLARE
+    v_cantidad INT;
+BEGIN
+    SELECT COUNT(*) INTO v_cantidad
+    FROM Meseros
+    WHERE id_empleado = NEW.id_empleado;
+
+    IF v_cantidad > 0 THEN
+        RAISE EXCEPTION 'El empleado % ya es mesero y no puede ser cocinero', NEW.id_empleado;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER t_cocinero_no_mesero
+BEFORE INSERT OR UPDATE ON Cocineros
+FOR EACH ROW EXECUTE FUNCTION f_cocinero_no_mesero();
+
+---Disparador 2: al recibir una compra, sumar al inventario y registrar la entrada
+CREATE OR REPLACE FUNCTION f_recibir_compra() RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.Fecha_recepcion IS NULL AND NEW.Fecha_recepcion IS NOT NULL THEN
+
+        UPDATE Inventarios
+        SET cantidad = cantidad + (SELECT SUM(d.cantidad)
+                                   FROM Detalles_compra d
+                                   WHERE d.id_compra = NEW.id_compra
+                                     AND d.id_ingrediente = Inventarios.id_ingrediente)
+        WHERE id_ingrediente IN (SELECT id_ingrediente
+                                 FROM Detalles_compra
+                                 WHERE id_compra = NEW.id_compra);
+
+        INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, id_ingrediente)
+        SELECT DISTINCT NEW.Fecha_recepcion, 'Entrada', id_ingrediente
+        FROM Detalles_compra
+        WHERE id_compra = NEW.id_compra;
+
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER t_recibir_compra
+AFTER UPDATE ON Compras
+FOR EACH ROW EXECUTE FUNCTION f_recibir_compra();
+
+---Disparador 3: no sacar de un inventario en cero
+CREATE OR REPLACE FUNCTION f_salida_con_inventario() RETURNS TRIGGER AS $$
+DECLARE
+    v_cantidad INT;
+BEGIN
+    IF NEW.tipo_movimiento = 'Salida' THEN
+        SELECT cantidad INTO v_cantidad
+        FROM Inventarios
+        WHERE id_ingrediente = NEW.id_ingrediente;
+
+        IF v_cantidad = 0 THEN
+            RAISE EXCEPTION 'El ingrediente % no tiene inventario para registrar una salida', NEW.id_ingrediente;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER t_salida_con_inventario
+BEFORE INSERT ON Movimientos_inventario
+FOR EACH ROW EXECUTE FUNCTION f_salida_con_inventario();

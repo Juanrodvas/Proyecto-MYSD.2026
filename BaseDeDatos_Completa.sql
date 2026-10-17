@@ -5,12 +5,7 @@
 --      TuplasNoOK y PoblarX
 -- ============================================================
 
-
--- ============================================================
--- XTablas.sql
--- ============================================================
-
-
+-- XTablas
 DROP TABLE IF EXISTS Desperdicios;
 DROP TABLE IF EXISTS Ventas;
 DROP TABLE IF EXISTS Detalles_compra;
@@ -26,10 +21,7 @@ DROP TABLE IF EXISTS Causas_desperdicio;
 DROP TABLE IF EXISTS Empleados;
 DROP TABLE IF EXISTS Proveedores;
 
-
--- ============================================================
--- Tablas.sql
--- ============================================================
+-- Tablas
 CREATE TABLE Proveedores (
     id_provedor   SERIAL,
     nombre        VARCHAR(100) NOT NULL,
@@ -56,9 +48,9 @@ CREATE TABLE Ingredientes (
 CREATE TABLE Recetas (
     id_receta          SERIAL,
     Nombre             VARCHAR(100) NOT NULL,
-    tiempo_preparacion INT,              -- minutos
+    tiempo_preparacion INT,
     Descripcion        VARCHAR(255),
-    ingredientes       VARCHAR(255)      -- texto libre según el diagrama
+    ingredientes       VARCHAR(255)
 );
 
 CREATE TABLE Cocineros (
@@ -79,7 +71,7 @@ CREATE TABLE Inventarios (
 CREATE TABLE Movimientos_inventario (
     id_movimiento   SERIAL,
     fecha           DATE NOT NULL,
-    tipo_movimiento VARCHAR(20) NOT NULL,   -- p.ej. 'Entrada' / 'Salida'
+    tipo_movimiento VARCHAR(20) NOT NULL,
     id_ingrediente  INT NOT NULL
 );
 
@@ -101,7 +93,7 @@ CREATE TABLE Detalles_compra (
 CREATE TABLE Platos (
     id_plato           SERIAL,
     nombre             VARCHAR(100) NOT NULL,
-    tiempo_preparacion INT,           -- minutos
+    tiempo_preparacion INT,
     id_receta          INT
 );
 
@@ -121,12 +113,7 @@ CREATE TABLE Desperdicios (
     id_causa                    INT NOT NULL
 );
 
-
-
--- ============================================================
 -- Atributos
--- Restricciones sobre un único atributo
--- ============================================================
 ALTER TABLE Proveedores
 ADD CONSTRAINT ck_proveedor_telefono CHECK (telefono > 0);
 
@@ -160,10 +147,7 @@ ADD CONSTRAINT ck_plato_tiempo CHECK (tiempo_preparacion > 0);
 ALTER TABLE Ventas
 ADD CONSTRAINT ck_venta_precio CHECK (precio > 0);
 
-
--- ============================================================
 -- Primarias
--- ============================================================
 ALTER TABLE Proveedores
 ADD CONSTRAINT pk_proveedores PRIMARY KEY (id_provedor);
 
@@ -206,11 +190,7 @@ ADD CONSTRAINT pk_ventas PRIMARY KEY (id_venta);
 ALTER TABLE Desperdicios
 ADD CONSTRAINT pk_desperdicios PRIMARY KEY (id_desperdicio);
 
-
--- ============================================================
--- Llaves_Foraneas.sql
--- ============================================================
--- Llaves foraneas
+-- Foraneas
 ALTER TABLE Cocineros
 ADD CONSTRAINT fk_cocinero_empleado
 FOREIGN KEY (id_empleado) REFERENCES Empleados(id_empleado)
@@ -250,7 +230,6 @@ ALTER TABLE Ventas
 ADD CONSTRAINT fk_venta_plato
 FOREIGN KEY (id_plato) REFERENCES Platos(id_plato);
 
-
 ALTER TABLE Desperdicios
 ADD CONSTRAINT fk_desperdicio_ingrediente
 FOREIGN KEY (id_ingrediente) REFERENCES Ingredientes(id_ingrediente);
@@ -263,10 +242,7 @@ ALTER TABLE Desperdicios
 ADD CONSTRAINT fk_desperdicio_causa
 FOREIGN KEY (id_causa) REFERENCES Causas_desperdicio(id_causa);
 
-
--- ============================================================
--- Unicas.sql
--- ============================================================
+-- Unicas
 ALTER TABLE Proveedores
 ADD CONSTRAINT uq_proveedor_correo UNIQUE (correo);
 
@@ -276,10 +252,7 @@ ADD CONSTRAINT uq_plato_nombre UNIQUE (nombre);
 ALTER TABLE Recetas
 ADD CONSTRAINT uq_receta_nombre UNIQUE (Nombre);
 
-
--- ============================================================
--- PoblarOK.sql
--- ============================================================
+-- PoblarOK
 INSERT INTO Proveedores (nombre, telefono, correo) VALUES
 ('Distribuidora La Fresca', 3001234567, 'contacto@lafresca.com'),
 ('AgroSuministros SAS',     3007654321, 'ventas@agrosuministros.com'),
@@ -308,7 +281,6 @@ INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes) VALU
 ('Ajiaco Santafereño',  60, 'Sopa típica bogotana',           'pollo, papa criolla, mazorca, guascas'),
 ('Ensalada César',      20, 'Ensalada con pollo a la parrilla','lechuga, pollo, queso parmesano, crutones');
 
--- id_empleado debe existir en Empleados
 INSERT INTO Cocineros (id_empleado, Especialidad) VALUES
 (1, 'Cocina Colombiana'),
 (3, 'Parrilla');
@@ -317,7 +289,6 @@ INSERT INTO Meseros (id_empleado, turno) VALUES
 (2, 'Mañana'),
 (4, 'Tarde');
 
--- id_ingrediente debe existir en Ingredientes
 INSERT INTO Inventarios (id_ingrediente, cantidad) VALUES
 (1, 50),
 (2, 30),
@@ -340,7 +311,6 @@ INSERT INTO Detalles_compra (cantidad, Total, id_compra, id_ingrediente) VALUES
 (10, 80000.00,  2, 2),
 (15, 200000.00, 3, 3);
 
--- id_receta debe existir en Recetas; nombre debe ser único (UNIQUE)
 INSERT INTO Platos (nombre, tiempo_preparacion, id_receta) VALUES
 ('Bandeja Paisa',      45, 1),
 ('Ajiaco Santafereño', 60, 2),
@@ -356,11 +326,7 @@ INSERT INTO Desperdicios (fecha, ingredientes_desperdiciados, id_ingrediente, id
 ('2026-09-23', 'Papa criolla en mal estado',      2, 1, 1),
 ('2026-09-24', 'Exceso de preparación de ajiaco', 4, 3, 3);
 
-
--- ============================================================
--- Consultas.sql
--- ============================================================
--- 1. Consultar compras realizadas
+-- Consultas
 SELECT
     c.id_compra,
     c.Fecha_compra,
@@ -374,7 +340,6 @@ JOIN Proveedores p        ON c.id_proveedor = p.id_provedor
 JOIN Detalles_compra dc   ON dc.id_compra = c.id_compra
 ORDER BY c.Fecha_compra DESC;
 
--- 2. Consultar proveedores
 SELECT
     id_provedor,
     nombre,
@@ -382,7 +347,6 @@ SELECT
     correo
 FROM Proveedores;
 
--- 3. Consultar inventario
 SELECT
     ing.id_ingrediente,
     ing.Fecha_vencimiento,
@@ -390,7 +354,6 @@ SELECT
 FROM Ingredientes ing
 JOIN Inventarios inv ON inv.id_ingrediente = ing.id_ingrediente;
 
--- 4. Consultar movimientos de inventario
 SELECT
     m.id_movimiento,
     m.fecha,
@@ -399,7 +362,6 @@ SELECT
 FROM Movimientos_inventario m
 ORDER BY m.fecha DESC;
 
--- 5. Consultar desperdicios (vista general del administrador)
 SELECT
     d.id_desperdicio,
     d.fecha,
@@ -411,7 +373,6 @@ JOIN Empleados e          ON e.id_empleado = d.id_empleado
 JOIN Causas_desperdicio ca ON ca.id_causa = d.id_causa
 ORDER BY d.fecha DESC;
 
--- 6. Consultar ventas realizadas
 SELECT
     v.id_venta,
     v.fecha_venta,
@@ -421,7 +382,6 @@ FROM Ventas v
 JOIN Platos pl ON pl.id_plato = v.id_plato
 ORDER BY v.fecha_venta DESC;
 
--- 7. Consultar platos más vendidos
 SELECT
     pl.id_plato,
     pl.nombre,
@@ -432,7 +392,6 @@ JOIN Platos pl ON pl.id_plato = v.id_plato
 GROUP BY pl.id_plato, pl.nombre
 ORDER BY veces_vendido DESC;
 
--- 8. Consultar ingredientes disponibles (cantidad > 0)
 SELECT
     ing.id_ingrediente,
     ing.Fecha_vencimiento,
@@ -441,7 +400,6 @@ FROM Ingredientes ing
 JOIN Inventarios inv ON inv.id_ingrediente = ing.id_ingrediente
 WHERE inv.cantidad > 0;
 
--- 9. Consultar desperdicios del día (fecha actual)
 SELECT
     d.id_desperdicio,
     d.fecha,
@@ -453,21 +411,18 @@ JOIN Empleados e           ON e.id_empleado = d.id_empleado
 JOIN Causas_desperdicio ca ON ca.id_causa = d.id_causa
 WHERE d.fecha = CURRENT_DATE;
 
--- 10. Consultar inventario disponible
 SELECT
     id_ingrediente,
     cantidad
 FROM Inventarios
 WHERE cantidad > 0;
 
--- 11. Consultar platos
 SELECT
     pl.id_plato,
     pl.nombre,
     pl.tiempo_preparacion
 FROM Platos pl;
 
--- 12. Consultar recetas o platos
 SELECT
     pl.id_plato,
     pl.nombre             AS plato,
@@ -478,7 +433,6 @@ SELECT
 FROM Platos pl
 JOIN Recetas r ON r.id_receta = pl.id_receta;
 
--- 13. Consultar platos con ingredientes disponibles en inventario
 SELECT
     pl.id_plato,
     pl.nombre         AS plato,
@@ -491,45 +445,56 @@ CROSS JOIN Ingredientes ing
 JOIN Inventarios inv    ON inv.id_ingrediente = ing.id_ingrediente
 WHERE inv.cantidad > 0;
 
-
--- ============================================================
--- PoblarNOK.sql
--- Estos INSERT fallan a propósito (prueban las restricciones).
--- Están comentados para que el script corra completo; descoméntalos para probarlos.
--- ============================================================
--- -- 1) Viola UNIQUE (correo ya usado por 'Distribuidora La Fresca')
+-- PoblarNoOK
 -- INSERT INTO Proveedores (nombre, telefono, correo)
 -- VALUES ('Otro Proveedor', 3001111111, 'contacto@lafresca.com');
--- 
--- -- 2) Viola UNIQUE (ya existe un plato llamado 'Bandeja Paisa')
+
 -- INSERT INTO Platos (nombre, tiempo_preparacion, id_receta)
 -- VALUES ('Bandeja Paisa', 50, 1);
--- 
--- -- 3) Viola UNIQUE (ya existe una receta llamada 'Ajiaco Santafereño')
+
 -- INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
 -- VALUES ('Ajiaco Santafereño', 55, 'Otra versión', 'pollo, papa');
--- 
--- -- 4) Viola llave foránea (id_proveedor 999 no existe en Proveedores)
+
 -- INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
 -- VALUES ('2026-09-26', NULL, 999);
--- 
--- -- 5) Viola llave foránea (id_plato 999 no existe en Platos)
+
 -- INSERT INTO Ventas (fecha_venta, precio, id_plato)
 -- VALUES ('2026-09-26', 20000.00, 999);
--- 
--- -- 6) Viola NOT NULL (nombre es obligatorio en Empleados)
+
 -- INSERT INTO Empleados (nombre, salario)
 -- VALUES (NULL, 1500000.00);
--- 
--- -- 7) Viola llave primaria (id_provedor 1 ya existe)
+
 -- INSERT INTO Proveedores (id_provedor, nombre, telefono, correo)
 -- VALUES (1, 'Duplicado', 3000000000, 'nuevo@correo.com');
 
+-- INSERT INTO Empleados (nombre, salario)
+-- VALUES ('Pedro Salas', 'mucho');
 
--- ============================================================
+-- INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
+-- VALUES ('no es fecha', NULL, 1);
+
+-- INSERT INTO Causas_desperdicio (descripcion)
+-- VALUES (REPEAT('x', 201));
+
+-- INSERT INTO Empleados (nombre, salario)
+-- VALUES ('Pedro Salas', -1500000.00);
+
+-- INSERT INTO Proveedores (nombre, telefono, correo)
+-- VALUES ('Proveedor Malo', 3005556677, 'correo-sin-arroba');
+
+-- INSERT INTO Meseros (id_empleado, turno)
+-- VALUES (3, 'Madrugada');
+
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, id_ingrediente)
+-- VALUES ('2026-10-01', 'Traslado', 1);
+
+-- INSERT INTO Detalles_compra (cantidad, Total, id_compra, id_ingrediente)
+-- VALUES (0, 50000.00, 1, 1);
+
+-- INSERT INTO Ventas (fecha_venta, precio, id_plato)
+-- VALUES ('2026-10-01', 0, 1);
+
 -- Tuplas
--- Restricciones que implican más de un atributo de la misma fila
--- ============================================================
 ALTER TABLE Proveedores
 ADD CONSTRAINT ck_proveedor_contacto
 CHECK (telefono IS NOT NULL OR correo IS NOT NULL);
@@ -542,59 +507,36 @@ ALTER TABLE Recetas
 ADD CONSTRAINT ck_receta_contenido
 CHECK (Descripcion IS NOT NULL OR ingredientes IS NOT NULL);
 
-
--- ============================================================
 -- TuplasOK
--- Datos correctos con respecto a las restricciones de tupla
--- ============================================================
--- Proveedor solo con correo (sin teléfono)
 INSERT INTO Proveedores (nombre, telefono, correo)
 VALUES ('Lácteos del Valle', NULL, 'ventas@lacteosvalle.com');
 
--- Proveedor solo con teléfono (sin correo)
 INSERT INTO Proveedores (nombre, telefono, correo)
 VALUES ('Frutas El Campo', 3112223344, NULL);
 
--- Compra recibida después de la fecha de compra
 INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
 VALUES ('2026-10-01', '2026-10-03', 1);
 
--- Compra recibida el mismo día
 INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
 VALUES ('2026-10-05', '2026-10-05', 2);
 
--- Receta solo con descripción
 INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
 VALUES ('Arepa de Choclo', 15, 'Arepa dulce de maíz tierno', NULL);
 
--- Receta solo con ingredientes
 INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
 VALUES ('Changua', 20, NULL, 'leche, huevo, cebolla larga, cilantro, pan');
 
-
--- ============================================================
 -- TuplasNoOK
--- Datos incorrectos con respecto a las restricciones de tupla.
--- Están comentados porque fallan a propósito; descoméntalos para probarlos.
--- ============================================================
--- -- 1) Viola ck_proveedor_contacto (sin teléfono ni correo)
 -- INSERT INTO Proveedores (nombre, telefono, correo)
 -- VALUES ('Proveedor Sin Contacto', NULL, NULL);
---
--- -- 2) Viola ck_compra_fechas (recepción antes de la compra)
+
 -- INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
 -- VALUES ('2026-10-10', '2026-10-01', 1);
---
--- -- 3) Viola ck_receta_contenido (sin descripción ni ingredientes)
+
 -- INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
 -- VALUES ('Receta Vacía', 30, NULL, NULL);
 
-
--- ============================================================
--- PoblarX.sql
--- Elimina las tablas con todos sus datos. Comentado para no borrarlas al final.
--- CASCADE elimina también las llaves foráneas que apuntan a cada tabla.
--- ============================================================
+-- XPoblar
 -- DROP TABLE IF EXISTS Desperdicios CASCADE;
 -- DROP TABLE IF EXISTS Ventas CASCADE;
 -- DROP TABLE IF EXISTS Platos CASCADE;
@@ -614,10 +556,10 @@ VALUES ('Changua', 20, NULL, 'leche, huevo, cebolla larga, cilantro, pan');
 --AccionesOK--
 --1--
 INSERT INTO Empleados(id_empleado, nombre, salario)
-VALUES(99, jhojan, 2000);
+VALUES(99, 'jhojan', 2000);
  
 INSERT INTO Cocineros(id_empleado, Especialidad)
-VALUES(99, reposteria);
+VALUES(99, 'reposteria');
 
 SELECT * FROM Cocineros WHERE id_empleado=99;
 
@@ -627,10 +569,10 @@ SELECT * FROM Cocineros WHERE id_empleado=99;
 
 --2--
 INSERT INTO Empleados(id_empleado, nombre, salario)
-VALUES(109, JUAN, 4000);
+VALUES(109, 'JUAN', 4000);
  
 INSERT INTO Meseros(id_empleado, turno)
-VALUES(109, Noche);
+VALUES(109, 'Noche');
 
 SELECT * FROM Meseros WHERE id_empleado=109;
 
@@ -640,18 +582,18 @@ SELECT * FROM Meseros WHERE id_empleado=109;
 
 --3--
 INSERT INTO Ingredientes(id_ingrediente, Fecha_vencimiento)
-VALUES(00009, 17/07/2030);
+VALUES(00009, '2030-07-17');
  
 INSERT INTO Inventarios(id_ingrediente, cantidad)
 VALUES(00009, 150);
 
-SELECT * FROM Inventarios WHERE id_empleado=00009;
+SELECT * FROM Inventarios WHERE id_ingrediente=00009;
 
-DELETE FROM Ingredientes WHERE id_empleado=00009;
+DELETE FROM Ingredientes WHERE id_ingrediente=00009;
 
-SELECT * FROM Inventarios WHERE id_empleado=00009;
+SELECT * FROM Inventarios WHERE id_ingrediente=00009;
 
----------DisparadoresOK--------------
+-- Disparadores
 ---Disparador 1: un cocinero no puede ser mesero
 CREATE OR REPLACE FUNCTION f_cocinero_no_mesero() RETURNS TRIGGER AS $$
 DECLARE
@@ -724,3 +666,43 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER t_salida_con_inventario
 BEFORE INSERT ON Movimientos_inventario
 FOR EACH ROW EXECUTE FUNCTION f_salida_con_inventario();
+
+-- DisparadoresOK
+INSERT INTO Empleados (nombre, salario)
+VALUES ('Camila Rojas', 1700000.00);
+
+INSERT INTO Cocineros (id_empleado, Especialidad)
+VALUES ((SELECT id_empleado FROM Empleados WHERE nombre = 'Camila Rojas'), 'Pastelería');
+
+SELECT * FROM Cocineros;
+
+SELECT * FROM Inventarios WHERE id_ingrediente = 3;
+
+UPDATE Compras SET Fecha_recepcion = '2026-09-22' WHERE id_compra = 3;
+
+SELECT * FROM Inventarios WHERE id_ingrediente = 3;
+
+SELECT * FROM Movimientos_inventario WHERE id_ingrediente = 3;
+
+INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, id_ingrediente)
+VALUES ('2026-10-01', 'Salida', 1);
+
+SELECT * FROM Movimientos_inventario WHERE id_ingrediente = 1;
+
+-- DisparadoresNoOK
+-- INSERT INTO Cocineros (id_empleado, Especialidad)
+-- VALUES (2, 'Postres');
+
+-- UPDATE Cocineros SET id_empleado = 4 WHERE id_empleado = 1;
+
+-- UPDATE Inventarios SET cantidad = 0 WHERE id_ingrediente = 4;
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, id_ingrediente)
+-- VALUES ('2026-10-01', 'Salida', 4);
+
+-- XDisparadores
+-- DROP TRIGGER IF EXISTS t_cocinero_no_mesero ON Cocineros;
+-- DROP TRIGGER IF EXISTS t_recibir_compra ON Compras;
+-- DROP TRIGGER IF EXISTS t_salida_con_inventario ON Movimientos_inventario;
+-- DROP FUNCTION IF EXISTS f_cocinero_no_mesero();
+-- DROP FUNCTION IF EXISTS f_recibir_compra();
+-- DROP FUNCTION IF EXISTS f_salida_con_inventario();

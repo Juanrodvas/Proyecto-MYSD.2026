@@ -592,10 +592,20 @@ VALUES ('Changua', 20, NULL, 'leche, huevo, cebolla larga, cilantro, pan');
 
 -- ============================================================
 -- PoblarX.sql
--- Borra todos los datos. Comentado para no vaciar las tablas al final.
--- RESTART IDENTITY reinicia los SERIAL en 1; CASCADE vacía también las tablas dependientes.
+-- Elimina las tablas con todos sus datos. Comentado para no borrarlas al final.
+-- CASCADE elimina también las llaves foráneas que apuntan a cada tabla.
 -- ============================================================
--- TRUNCATE TABLE Desperdicios, Ventas, Platos, Detalles_compra, Compras,
---     Movimientos_inventario, Inventarios, Recetas, Cocineros, Meseros,
---     Empleados, Causas_desperdicio, Ingredientes, Proveedores
---     RESTART IDENTITY CASCADE;
+-- DROP TABLE IF EXISTS Desperdicios CASCADE;
+-- DROP TABLE IF EXISTS Ventas CASCADE;
+-- DROP TABLE IF EXISTS Platos CASCADE;
+-- DROP TABLE IF EXISTS Detalles_compra CASCADE;
+-- DROP TABLE IF EXISTS Compras CASCADE;
+-- DROP TABLE IF EXISTS Movimientos_inventario CASCADE;
+-- DROP TABLE IF EXISTS Inventarios CASCADE;
+-- DROP TABLE IF EXISTS Recetas CASCADE;
+-- DROP TABLE IF EXISTS Cocineros CASCADE;
+-- DROP TABLE IF EXISTS Meseros CASCADE;
+-- DROP TABLE IF EXISTS Empleados CASCADE;
+-- DROP TABLE IF EXISTS Causas_desperdicio CASCADE;
+-- DROP TABLE IF EXISTS Ingredientes CASCADE;
+-- DROP TABLE IF EXISTS Proveedores CASCADE;

@@ -94,6 +94,10 @@ INSERT INTO plays_in (band_no, musician_id) VALUES
 SELECT * FROM band;
 SELECT * FROM plays_in;
 
+-- Las pruebas se ejecutan dentro de una transacción que se deshace al final
+-- (ROLLBACK), para que la base quede con todos los datos iniciales.
+BEGIN;
+
 -- Prueba 1: Inserción y borrado permitido (lugar sin bandas asociadas)
 INSERT INTO place (place_no, place_name) VALUES (4, 'Cartagena');
 DELETE FROM place WHERE place_no = 4;
@@ -103,6 +107,8 @@ DELETE FROM band WHERE band_id = 3;
 
 -- Debe devolver 0 filas para la banda 3
 SELECT * FROM plays_in WHERE band_no = 3;
+
+ROLLBACK;
 
 -- [Pruebas de restricción opcionales para validar en consola]:
 -- DELETE FROM place WHERE place_no = 1;     -- Falla (tiene bandas)

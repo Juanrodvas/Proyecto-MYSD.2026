@@ -535,6 +535,57 @@ BEFORE UPDATE ON planesformacion
 FOR EACH ROW EXECUTE FUNCTION fn_plan_bu();
 
 
+create or replace function fn_plan_bd() returns trigger as $$ 
+begin 
+raise exception 'no esta permitido eliminar un plan formacion';
+end;
+$$ language plpgsql
+create trigger tg_plan_bu
+before delete on planesformacion
+for each row execute function fn_plan_bd();
+
+CREATE OR REPLACE FUNCTION fn_habilidades_bd() RETURNS TRIGGER AS $$
+BEGIN
+    IF (SELECT estado FROM planesformacion WHERE numero = OLD.numero_plan) <> 'Diseño' THEN
+        RAISE EXCEPTION 'Solo se pueden eliminar habilidades de un plan en estado Diseño';
+    END IF;
+ 
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+ 
+CREATE TRIGGER tg_habilidades_bd
+BEFORE DELETE ON tieneprioridad
+FOR EACH ROW EXECUTE FUNCTION fn_habilidades_bd();
+
+
+
+
+
+Create or replace function fn_plan_bi() returns trigger as $$
+begin
+new.fecha := CURRENT_DATE;
+new.estado := 'diseño';
+new.fechafin := NULL;
+
+IF exists(select 1 from planesformacion
+where correo_candidato = new.correo_candidato
+and extract(year from fecha)=extract(year from new.fecha)) THEN
+raise exception 'El candidato ya registro un plan de formacion este año';
+end if
+if exists(select 1 from candidatoesconexion
+where (correo_candidato = new.candidato and correo_candidato_conexion = new.evaluador)or(correo_candidato = new.evaluador and correo_candidato_conexion= new.correo_candidato))THEN
+Raise exception 'el evaluador no puede ser una conexion del candidato';
+end if;
+return new;
+end;
+$$ language plpgsql;
+
+create trigger tg_plan_bi
+before insert on planesformacion
+for each row execute function fn_plan_bi;
+
+
 -- DISPARADORES OK
 UPDATE planesformacion SET estado = 'Aprobado' WHERE numero = 1;
 

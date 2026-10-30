@@ -770,14 +770,14 @@ BEGIN
 
         UPDATE Inventarios
         SET cantidad = cantidad + (SELECT SUM(d.cantidad)
-                                   FROM Detalles_compra d
-                                   WHERE d.id_compra = NEW.id_compra
-                                     AND d.id_ingrediente = Inventarios.id_ingrediente)
+FROM Detalles_compra d
+WHERE d.id_compra = NEW.id_compra
+AND d.id_ingrediente = Inventarios.id_ingrediente)
         WHERE id_ingrediente IN (SELECT id_ingrediente
-                                 FROM Detalles_compra
-                                 WHERE id_compra = NEW.id_compra);
+FROM Detalles_compra
+WHERE id_compra = NEW.id_compra);
 
-        INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente)
+INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente)
         SELECT NEW.Fecha_recepcion, 'Entrada', SUM(cantidad), id_ingrediente
         FROM Detalles_compra
         WHERE id_compra = NEW.id_compra

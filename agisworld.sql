@@ -480,32 +480,6 @@ WHERE nombreCorto = 'DEVOPS';
 CREATE OR REPLACE FUNCTION fn_plan_bu() RETURNS TRIGGER AS $$
 BEGIN
 
-    IF NEW.estado IN ('Aprobado', 'No aprobado')
-    AND OLD.estado NOT IN ('Aprobado', 'No aprobado') THEN
-        RETURN NEW;
-    END IF;
-
-    IF TO_CHAR(CURRENT_DATE, 'MM') <> '01' OR OLD.estado <> 'Diseño' THEN
-        RAISE EXCEPTION 'Solo se puede modificar en enero y mientras el plan este en Diseño';
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER tg_plan_bu
-BEFORE UPDATE ON planesformacion
-FOR EACH ROW EXECUTE FUNCTION fn_plan_bu();
-
-
-
-
-
-
-
-CREATE OR REPLACE FUNCTION fn_plan_bu() RETURNS TRIGGER AS $$
-BEGIN
-
     IF NEW.estado IS DISTINCT FROM OLD.estado THEN
         IF NOT (
             (OLD.estado = 'Diseño'    AND NEW.estado = 'Ejecucion') OR
@@ -518,6 +492,7 @@ BEGIN
 
     IF NEW.estado IN ('Aprobado', 'No aprobado')
     AND OLD.estado NOT IN ('Aprobado', 'No aprobado') THEN
+        NEW.fechafin := CURRENT_DATE;
         RETURN NEW;
     END IF;
 
@@ -540,6 +515,7 @@ begin
 raise exception 'no esta permitido eliminar un plan formacion';
 end;
 $$ language plpgsql;
+
 create trigger tg_plan_bd
 before delete on planesformacion
 for each row execute function fn_plan_bd();
@@ -549,11 +525,11 @@ BEGIN
     IF (SELECT estado FROM planesformacion WHERE numero = OLD.numero_plan) <> 'Diseño' THEN
         RAISE EXCEPTION 'Solo se pueden eliminar habilidades de un plan en estado Diseño';
     END IF;
- 
+
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
- 
+
 CREATE TRIGGER tg_habilidades_bd
 BEFORE DELETE ON tieneprioridad
 FOR EACH ROW EXECUTE FUNCTION fn_habilidades_bd();
@@ -818,7 +794,10 @@ DROP SCHEMA sv_planes CASCADE;
 -- XDISPARADORES
 
 
-Drop trigger if exists tg_plan_bu ON planesformacion;
+DROP TRIGGER IF EXISTS tg_plan_bu ON planesformacion;
+DROP TRIGGER IF EXISTS tg_plan_bd ON planesformacion;
+DROP TRIGGER IF EXISTS tg_plan_bi ON planesformacion;
+DROP TRIGGER IF EXISTS tg_habilidades_bd ON tieneprioridad;
 
 
 

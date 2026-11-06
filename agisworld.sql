@@ -530,7 +530,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER tg_plan_bu
+CREATE OR REPLACE TRIGGER tg_plan_bu
 BEFORE UPDATE ON planesformacion
 FOR EACH ROW EXECUTE FUNCTION fn_plan_bu();
 
@@ -539,8 +539,8 @@ create or replace function fn_plan_bd() returns trigger as $$
 begin 
 raise exception 'no esta permitido eliminar un plan formacion';
 end;
-$$ language plpgsql
-create trigger tg_plan_bu
+$$ language plpgsql;
+create trigger tg_plan_bd
 before delete on planesformacion
 for each row execute function fn_plan_bd();
 
@@ -565,16 +565,16 @@ FOR EACH ROW EXECUTE FUNCTION fn_habilidades_bd();
 Create or replace function fn_plan_bi() returns trigger as $$
 begin
 new.fecha := CURRENT_DATE;
-new.estado := 'diseño';
+new.estado := 'Diseño';
 new.fechafin := NULL;
 
 IF exists(select 1 from planesformacion
 where correo_candidato = new.correo_candidato
 and extract(year from fecha)=extract(year from new.fecha)) THEN
 raise exception 'El candidato ya registro un plan de formacion este año';
-end if
+end if;
 if exists(select 1 from candidatoesconexion
-where (correo_candidato = new.candidato and correo_candidato_conexion = new.evaluador)or(correo_candidato = new.evaluador and correo_candidato_conexion= new.correo_candidato))THEN
+where (correo_candidato = new.correo_candidato and correo_candidato_conexion = new.evaluador)or(correo_candidato = new.evaluador and correo_candidato_conexion= new.correo_candidato))THEN
 Raise exception 'el evaluador no puede ser una conexion del candidato';
 end if;
 return new;
@@ -583,7 +583,7 @@ $$ language plpgsql;
 
 create trigger tg_plan_bi
 before insert on planesformacion
-for each row execute function fn_plan_bi;
+for each row execute function fn_plan_bi();
 
 
 -- DISPARADORES OK
@@ -598,10 +598,227 @@ UPDATE planesformacion SET fecha = '2025-01-20' WHERE numero = 3;
 
 
 
+-- COMPONENTES
+-- Caso de uso: Mantener plan de formacion (servicio SV_PLANES)
+-- Las reglas que ya protegen los disparadores (un plan por año, evaluador que no sea
+-- conexion, transiciones de estado, modificar solo en enero) no se repiten aqui.
+
+CREATE SCHEMA sv_planes;
+
+-- Registrar plan: la fecha, el estado y fechafin los asigna el disparador tg_plan_bi
+CREATE FUNCTION sv_planes.ad(p_candidato VARCHAR, p_evaluador VARCHAR)
+RETURNS INTEGER AS $$
+DECLARE
+    v_numero INTEGER;
+BEGIN
+    IF p_candidato = p_evaluador THEN
+        RAISE EXCEPTION 'El candidato no puede ser evaluador de su propio plan';
+    END IF;
+
+    INSERT INTO planesformacion (correo_candidato, evaluador)
+    VALUES (p_candidato, p_evaluador)
+    RETURNING numero INTO v_numero;
+
+    RETURN v_numero;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Modificar plan: cambia el evaluador (tg_plan_bi solo valida al insertar)
+CREATE FUNCTION sv_planes.up(p_numero INTEGER, p_evaluador VARCHAR)
+RETURNS VOID AS $$
+DECLARE
+    v_candidato VARCHAR;
+BEGIN
+    SELECT correo_candidato INTO v_candidato
+    FROM planesformacion
+    WHERE numero = p_numero;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'No existe el plan de formacion %', p_numero;
+    END IF;
+
+    IF v_candidato = p_evaluador THEN
+        RAISE EXCEPTION 'El candidato no puede ser evaluador de su propio plan';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM candidatoesconexion
+               WHERE (correo_candidato = v_candidato AND correo_candidato_conexion = p_evaluador)
+                  OR (correo_candidato = p_evaluador AND correo_candidato_conexion = v_candidato)) THEN
+        RAISE EXCEPTION 'El evaluador no puede ser una conexion del candidato';
+    END IF;
+
+    UPDATE planesformacion SET evaluador = p_evaluador WHERE numero = p_numero;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Cambiar estado: al terminar el plan se registra la fecha de fin
+CREATE FUNCTION sv_planes.up_estado(p_numero INTEGER, p_estado Testado)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE planesformacion
+    SET estado = p_estado,
+        fechafin = CASE WHEN p_estado IN ('Aprobado', 'No aprobado')
+                        THEN CURRENT_DATE ELSE fechafin END
+    WHERE numero = p_numero;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'No existe el plan de formacion %', p_numero;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Agregar habilidad al plan: solo mientras el plan este en Diseño
+CREATE FUNCTION sv_planes.ad_habilidad(p_numero INTEGER, p_habilidad VARCHAR, p_prioridad VARCHAR)
+RETURNS VOID AS $$
+DECLARE
+    v_estado Testado;
+BEGIN
+    SELECT estado INTO v_estado FROM planesformacion WHERE numero = p_numero;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'No existe el plan de formacion %', p_numero;
+    END IF;
+
+    IF v_estado <> 'Diseño' THEN
+        RAISE EXCEPTION 'Solo se pueden agregar habilidades a un plan en estado Diseño';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM tieneprioridad
+               WHERE numero_plan = p_numero AND nombreCorto_habilidad = p_habilidad) THEN
+        RAISE EXCEPTION 'La habilidad % ya esta en el plan %', p_habilidad, p_numero;
+    END IF;
+
+    INSERT INTO tieneprioridad (numero_plan, nombreCorto_habilidad, prioridad)
+    VALUES (p_numero, p_habilidad, p_prioridad);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Quitar habilidad del plan: el estado Diseño lo valida tg_habilidades_bd
+CREATE FUNCTION sv_planes.de_habilidad(p_numero INTEGER, p_habilidad VARCHAR)
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM tieneprioridad
+    WHERE numero_plan = p_numero AND nombreCorto_habilidad = p_habilidad;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'La habilidad % no esta en el plan %', p_habilidad, p_numero;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Consultar plan: datos del plan y sus habilidades con prioridad
+CREATE FUNCTION sv_planes.co(p_numero INTEGER)
+RETURNS REFCURSOR AS $$
+DECLARE
+    v_cursor REFCURSOR := 'co_cursor';
+BEGIN
+    OPEN v_cursor FOR
+        SELECT p.numero, p.correo_candidato, p.evaluador, p.estado, p.fecha, p.fechafin,
+               t.nombreCorto_habilidad AS habilidad, t.prioridad
+        FROM planesformacion p
+        LEFT JOIN tieneprioridad t ON t.numero_plan = p.numero
+        WHERE p.numero = p_numero
+        ORDER BY t.nombreCorto_habilidad;
+    RETURN v_cursor;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Consultar estado de formacion por habilidades: por cada habilidad del plan, los cursos
+-- que la desarrollan y el ultimo avance registrado en cada uno
+CREATE FUNCTION sv_planes.co_estado_habilidades(p_numero INTEGER)
+RETURNS REFCURSOR AS $$
+DECLARE
+    v_cursor REFCURSOR := 'co_estado_habilidades_cursor';
+BEGIN
+    OPEN v_cursor FOR
+        SELECT t.nombreCorto_habilidad AS habilidad, h.nombre AS nombre_habilidad, t.prioridad,
+               cu.codigo AS curso, cu.nombre AS nombre_curso,
+               COALESCE(ua.tipo, 'sin iniciar') AS estado_formacion, ua.fecha AS fecha_avance
+        FROM tieneprioridad t
+        JOIN habilidades h ON h.nombreCorto = t.nombreCorto_habilidad
+        LEFT JOIN curso_habilidades ch ON ch.nombreCorto_habilidad = t.nombreCorto_habilidad
+        LEFT JOIN cursos cu ON cu.codigo = ch.codigo_curso
+        LEFT JOIN LATERAL (
+            SELECT a.tipo, a.fecha
+            FROM avances a
+            WHERE a.numero_plan = t.numero_plan AND a.codigo_curso = ch.codigo_curso
+            ORDER BY a.fecha DESC, a.id_avance DESC
+            LIMIT 1
+        ) ua ON TRUE
+        WHERE t.numero_plan = p_numero
+        ORDER BY t.nombreCorto_habilidad, cu.codigo;
+    RETURN v_cursor;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- COMPONENTES OK
+-- Datos de apoyo: un candidato sin plan y un evaluador que aun no evalua ningun plan
+INSERT INTO candidatos (correo, nombres) VALUES
+('sofia.mora@mail.com', 'Sofia Mora'),
+('diego.rios@mail.com', 'Diego Rios')
+ON CONFLICT (correo) DO NOTHING;
+
+-- Caso 1: Registrar un plan. Queda en Diseño, con la fecha de hoy y sin fecha de fin.
+SELECT sv_planes.ad('sofia.mora@mail.com', 'diego.rios@mail.com');
+
+SELECT numero, fecha, fechafin, estado, evaluador FROM planesformacion
+WHERE correo_candidato = 'sofia.mora@mail.com';
+
+-- Caso 2: Agregar habilidades al plan en Diseño.
+SELECT sv_planes.ad_habilidad(
+    (SELECT numero FROM planesformacion WHERE correo_candidato = 'sofia.mora@mail.com'), 'SQL', 'ALTA');
+SELECT sv_planes.ad_habilidad(
+    (SELECT numero FROM planesformacion WHERE correo_candidato = 'sofia.mora@mail.com'), 'TEST', 'MEDIA');
+
+SELECT * FROM tieneprioridad
+WHERE numero_plan = (SELECT numero FROM planesformacion WHERE correo_candidato = 'sofia.mora@mail.com');
+
+-- Caso 3: Quitar una habilidad del plan en Diseño.
+SELECT sv_planes.de_habilidad(
+    (SELECT numero FROM planesformacion WHERE correo_candidato = 'sofia.mora@mail.com'), 'TEST');
+
+SELECT * FROM tieneprioridad
+WHERE numero_plan = (SELECT numero FROM planesformacion WHERE correo_candidato = 'sofia.mora@mail.com');
+
+-- Caso 4: Terminar el plan 3 (en Ejecucion) como Aprobado. Se registra la fecha de fin.
+SELECT sv_planes.up_estado(3, 'Aprobado');
+
+BEGIN;
+SELECT sv_planes.co(3);
+FETCH ALL FROM co_cursor;
+COMMIT;
+
+-- Caso 5: Consultar el estado de formacion por habilidades del plan 3.
+BEGIN;
+SELECT sv_planes.co_estado_habilidades(3);
+FETCH ALL FROM co_estado_habilidades_cursor;
+COMMIT;
+
+
+-- COMPONENTES NO OK
+-- Caso 1: Segundo plan del mismo candidato en el mismo año.
+-- Resultado esperado: error 'El candidato ya registro un plan de formacion este año'.
+SELECT sv_planes.ad('sofia.mora@mail.com', 'carlos.ruiz@mail.com');
+
+-- Caso 2: Evaluador que es conexion del candidato.
+-- Resultado esperado: error 'el evaluador no puede ser una conexion del candidato'.
+SELECT sv_planes.ad('juan.perez@mail.com', 'maria.gomez@mail.com');
+
+-- Caso 3: Devolver a Diseño un plan ya terminado.
+-- Resultado esperado: error 'Transicion de estado no permitida: Aprobado -> Diseño'.
+SELECT sv_planes.up_estado(3, 'Diseño');
+
+
+-- XCOMPONENTES
+DROP SCHEMA sv_planes CASCADE;
+
+
+
 -- XDISPARADORES
 
 
-Drop trigger if exists tg_plan_bu ON planesformacion
+Drop trigger if exists tg_plan_bu ON planesformacion;
 
 
 

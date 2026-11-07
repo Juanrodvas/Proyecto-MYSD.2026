@@ -877,18 +877,17 @@ INSERT INTO candidatos (correo, nombres) VALUES
 ('andres.vega@mail.com', 'Andres Vega')
 ON CONFLICT (correo) DO NOTHING;
 
--- Caso 1: El candidato registra su plan. Se guarda el numero para los casos siguientes,
--- porque el candidato no tiene permiso para consultar la tabla.
+-- Caso 1: El candidato registra su plan. Ejecutando por bloques sin las pruebas que fallan, queda como el plan 7.
+-- Si el numero que devuelve es otro, se debe cambiar en los casos siguientes.
 SET ROLE candidato;
-SELECT set_config('agis.plan_candidato',
-    sv_candidato.ad('valentina.castro@mail.com', 'andres.vega@mail.com')::TEXT, FALSE);
+SELECT sv_candidato.ad('valentina.castro@mail.com', 'andres.vega@mail.com');
 
 -- Caso 2: El candidato agrega una habilidad a su plan.
-SELECT sv_candidato.ad_habilidad(current_setting('agis.plan_candidato')::INTEGER, 'SQL', 'ALTA');
+SELECT sv_candidato.ad_habilidad(7, 'SQL', 'ALTA');
 
 -- Caso 3: El candidato consulta su plan y ve la habilidad agregada.
 BEGIN;
-SELECT sv_candidato.co(current_setting('agis.plan_candidato')::INTEGER);
+SELECT sv_candidato.co(7);
 FETCH ALL FROM co_cursor;
 COMMIT;
 RESET ROLE;
@@ -896,28 +895,25 @@ RESET ROLE;
 -- Caso 4: La Junta consulta el estado de formacion por habilidades del plan del candidato.
 SET ROLE junta_administradora;
 BEGIN;
-SELECT sv_junta.co_estado_habilidades(current_setting('agis.plan_candidato')::INTEGER);
+SELECT sv_junta.co_estado_habilidades(7);
 FETCH ALL FROM co_estado_habilidades_cursor;
 COMMIT;
 RESET ROLE;
 
--- Caso 5: La Junta termina como No aprobado un plan en Ejecucion. Se registra la fecha de fin.
-SELECT set_config('agis.plan_ejecucion', MIN(numero)::TEXT, FALSE)
-FROM planesformacion WHERE estado = 'Ejecucion';
-
+-- Caso 5: La Junta termina como No aprobado el plan 5, que esta en Ejecucion. Se registra la fecha de fin.
 SET ROLE junta_administradora;
-SELECT sv_junta.up_estado(current_setting('agis.plan_ejecucion')::INTEGER, 'No aprobado');
+SELECT sv_junta.up_estado(5, 'No aprobado');
 RESET ROLE;
 
 SELECT numero, estado, fechafin FROM planesformacion
-WHERE numero = current_setting('agis.plan_ejecucion')::INTEGER;
+WHERE numero = 5;
 
 
 -- SEGURIDAD NO OK
 -- Caso 1: El candidato intenta cambiar el estado de un plan con el servicio de la Junta.
 -- Resultado esperado: error 'permission denied for schema sv_junta'.
 SET ROLE candidato;
-SELECT sv_junta.up_estado(current_setting('agis.plan_candidato')::INTEGER, 'Aprobado');
+SELECT sv_junta.up_estado(7, 'Aprobado');
 RESET ROLE;
 
 -- Caso 2: El candidato intenta leer la tabla directamente, sin usar su servicio.

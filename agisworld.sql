@@ -286,7 +286,7 @@ INSERT INTO notificaciones (id_notificacion, fecha_generacion, accion, asunto, d
 -- posterior a la fecha de generacion de la notificacion". No existe un CHECK que
 -- compare fecha_lectura contra fecha_generacion, por lo que el INSERT se ejecuta sin error.
 INSERT INTO notificaciones (id_notificacion, fecha_generacion, accion, asunto, destinatario, mensaje, detalle_notificacion, fecha_lectura, lectura, id_avance) VALUES
-(6, '2025-09-10', 'Inscripcion', 'Inscripcion-2025-09-PruebasDeSoftware', 'luis.torres@mail.com', 'Se registro una inscripcion en el curso Pruebas de Software', 'Avance de plan de formacion', '2025-09-01', 'si', 4);
+(6, '2025-09-10', 'Inscripcion', 'Inscripcion-2025-09-PruebasDeSoftware', 'luis.torres@mail.com', 'Inscripcion en el curso Pruebas de Software', 'Avance de plan de formacion', '2025-09-01', 'si', 4);
 
 -- Se inserta sin problema aunque fecha_lectura (01-sep) es anterior a fecha_generacion (10-sep).
 
@@ -574,13 +574,14 @@ UPDATE planesformacion SET fecha = '2025-01-20' WHERE numero = 3;
 
 
 
+
+
 -- COMPONENTES
 -- Caso de uso: Mantener plan de formacion (servicio SV_PLANES)
 -- Las reglas que ya protegen los disparadores (un plan por año, evaluador que no sea
 -- conexion, transiciones de estado, modificar solo en enero) no se repiten aqui.
 
 CREATE SCHEMA sv_planes;
-
 -- Registrar plan: la fecha, el estado y fechafin los asigna el disparador tg_plan_bi
 CREATE FUNCTION sv_planes.ad(p_candidato VARCHAR, p_evaluador VARCHAR)
 RETURNS INTEGER AS $$
@@ -618,8 +619,8 @@ BEGIN
     END IF;
 
     IF EXISTS (SELECT 1 FROM candidatoesconexion
-               WHERE (correo_candidato = v_candidato AND correo_candidato_conexion = p_evaluador)
-                  OR (correo_candidato = p_evaluador AND correo_candidato_conexion = v_candidato)) THEN
+        WHERE (correo_candidato = v_candidato AND correo_candidato_conexion = p_evaluador)
+        OR (correo_candidato = p_evaluador AND correo_candidato_conexion = v_candidato)) THEN
         RAISE EXCEPTION 'El evaluador no puede ser una conexion del candidato';
     END IF;
 
@@ -660,7 +661,7 @@ BEGIN
     END IF;
 
     IF EXISTS (SELECT 1 FROM tieneprioridad
-               WHERE numero_plan = p_numero AND nombreCorto_habilidad = p_habilidad) THEN
+    WHERE numero_plan = p_numero AND nombreCorto_habilidad = p_habilidad) THEN
         RAISE EXCEPTION 'La habilidad % ya esta en el plan %', p_habilidad, p_numero;
     END IF;
 
@@ -689,8 +690,7 @@ DECLARE
     v_cursor REFCURSOR := 'co_cursor';
 BEGIN
     OPEN v_cursor FOR
-        SELECT p.numero, p.correo_candidato, p.evaluador, p.estado, p.fecha, p.fechafin,
-               t.nombreCorto_habilidad AS habilidad, t.prioridad
+        SELECT t.nombreCorto_habilidad AS habilidad, t.prioridad
         FROM planesformacion p
         LEFT JOIN tieneprioridad t ON t.numero_plan = p.numero
         WHERE p.numero = p_numero
@@ -708,8 +708,8 @@ DECLARE
 BEGIN
     OPEN v_cursor FOR
         SELECT t.nombreCorto_habilidad AS habilidad, h.nombre AS nombre_habilidad, t.prioridad,
-               cu.codigo AS curso, cu.nombre AS nombre_curso,
-               COALESCE(ua.tipo, 'sin iniciar') AS estado_formacion, ua.fecha AS fecha_avance
+        cu.codigo AS curso, cu.nombre AS nombre_curso,
+        COALESCE(ua.tipo, 'sin iniciar') AS estado_formacion, ua.fecha AS fecha_avance
         FROM tieneprioridad t
         JOIN habilidades h ON h.nombreCorto = t.nombreCorto_habilidad
         LEFT JOIN curso_habilidades ch ON ch.nombreCorto_habilidad = t.nombreCorto_habilidad
@@ -785,8 +785,161 @@ SELECT sv_planes.ad('juan.perez@mail.com', 'maria.gomez@mail.com');
 -- Resultado esperado: error 'Transicion de estado no permitida: Aprobado -> Diseño'.
 SELECT sv_planes.up_estado(3, 'Diseño');
 
+-- ACTORES
+-- Caso de uso: Mantener plan de formacion
+
+-- Actor: Candidato
+CREATE SCHEMA sv_candidato;
+
+CREATE FUNCTION sv_candidato.ad(p_candidato VARCHAR, p_evaluador VARCHAR)
+RETURNS INTEGER AS $$
+BEGIN
+    RETURN sv_planes.ad(p_candidato, p_evaluador);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE FUNCTION sv_candidato.ad_habilidad(p_numero INTEGER, p_habilidad VARCHAR, p_prioridad VARCHAR)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM sv_planes.ad_habilidad(p_numero, p_habilidad, p_prioridad);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE FUNCTION sv_candidato.de_habilidad(p_numero INTEGER, p_habilidad VARCHAR)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM sv_planes.de_habilidad(p_numero, p_habilidad);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE FUNCTION sv_candidato.co(p_numero INTEGER)
+RETURNS REFCURSOR AS $$
+BEGIN
+    RETURN sv_planes.co(p_numero);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE FUNCTION sv_candidato.co_estado_habilidades(p_numero INTEGER)
+RETURNS REFCURSOR AS $$
+BEGIN
+    RETURN sv_planes.co_estado_habilidades(p_numero);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+-- Actor: Junta Administradora
+CREATE SCHEMA sv_junta;
+
+CREATE FUNCTION sv_junta.up(p_numero INTEGER, p_evaluador VARCHAR)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM sv_planes.up(p_numero, p_evaluador);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE FUNCTION sv_junta.up_estado(p_numero INTEGER, p_estado Testado)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM sv_planes.up_estado(p_numero, p_estado);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE FUNCTION sv_junta.co(p_numero INTEGER)
+RETURNS REFCURSOR AS $$
+BEGIN
+    RETURN sv_planes.co(p_numero);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE FUNCTION sv_junta.co_estado_habilidades(p_numero INTEGER)
+RETURNS REFCURSOR AS $$
+BEGIN
+    RETURN sv_planes.co_estado_habilidades(p_numero);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+
+-- SEGURIDAD
+create role junta_administradora;
+create role candidato;
+grant junta_administradora, candidato to current_user;
+revoke all on all functions in schema sv_candidato, sv_junta from public;
+grant usage on schema sv_candidato to candidato;
+grant usage on schema sv_junta to junta_administradora;
+grant execute on all functions in schema sv_candidato to candidato;
+grant execute on all functions in schema sv_junta to junta_administradora;
+
+
+-- SEGURIDAD OK
+-- SET ROLE simula cada actor. Con las cuentas reales, se ejecuta iniciando sesion con cada usuario.
+-- Datos de apoyo: un candidato sin plan y un evaluador que aun no evalua ningun plan
+INSERT INTO candidatos (correo, nombres) VALUES
+('valentina.castro@mail.com', 'Valentina Castro'),
+('andres.vega@mail.com', 'Andres Vega')
+ON CONFLICT (correo) DO NOTHING;
+
+-- Caso 1: El candidato registra su plan. Se guarda el numero para los casos siguientes,
+-- porque el candidato no tiene permiso para consultar la tabla.
+SET ROLE candidato;
+SELECT set_config('agis.plan_candidato',
+    sv_candidato.ad('valentina.castro@mail.com', 'andres.vega@mail.com')::TEXT, FALSE);
+
+-- Caso 2: El candidato agrega una habilidad a su plan.
+SELECT sv_candidato.ad_habilidad(current_setting('agis.plan_candidato')::INTEGER, 'SQL', 'ALTA');
+
+-- Caso 3: El candidato consulta su plan y ve la habilidad agregada.
+BEGIN;
+SELECT sv_candidato.co(current_setting('agis.plan_candidato')::INTEGER);
+FETCH ALL FROM co_cursor;
+COMMIT;
+RESET ROLE;
+
+-- Caso 4: La Junta consulta el estado de formacion por habilidades del plan del candidato.
+SET ROLE junta_administradora;
+BEGIN;
+SELECT sv_junta.co_estado_habilidades(current_setting('agis.plan_candidato')::INTEGER);
+FETCH ALL FROM co_estado_habilidades_cursor;
+COMMIT;
+RESET ROLE;
+
+-- Caso 5: La Junta termina como No aprobado un plan en Ejecucion. Se registra la fecha de fin.
+SELECT set_config('agis.plan_ejecucion', MIN(numero)::TEXT, FALSE)
+FROM planesformacion WHERE estado = 'Ejecucion';
+
+SET ROLE junta_administradora;
+SELECT sv_junta.up_estado(current_setting('agis.plan_ejecucion')::INTEGER, 'No aprobado');
+RESET ROLE;
+
+SELECT numero, estado, fechafin FROM planesformacion
+WHERE numero = current_setting('agis.plan_ejecucion')::INTEGER;
+
+
+-- SEGURIDAD NO OK
+-- Caso 1: El candidato intenta cambiar el estado de un plan con el servicio de la Junta.
+-- Resultado esperado: error 'permission denied for schema sv_junta'.
+SET ROLE candidato;
+SELECT sv_junta.up_estado(current_setting('agis.plan_candidato')::INTEGER, 'Aprobado');
+RESET ROLE;
+
+-- Caso 2: El candidato intenta leer la tabla directamente, sin usar su servicio.
+-- Resultado esperado: error 'permission denied for table planesformacion'.
+SET ROLE candidato;
+SELECT * FROM planesformacion;
+RESET ROLE;
+
+-- Caso 3: La Junta intenta registrar un plan con el servicio del candidato.
+-- Resultado esperado: error 'permission denied for schema sv_candidato'.
+SET ROLE junta_administradora;
+SELECT sv_candidato.ad('sofia.mora@mail.com', 'andres.vega@mail.com');
+RESET ROLE;
+
+
+-- XSEGURIDAD
+drop owned by junta_administradora, candidato;
+drop role junta_administradora, candidato;
 
 -- XCOMPONENTES
+DROP SCHEMA sv_candidato CASCADE;
+DROP SCHEMA sv_junta CASCADE;
 DROP SCHEMA sv_planes CASCADE;
 
 
@@ -800,7 +953,6 @@ DROP TRIGGER IF EXISTS tg_plan_bi ON planesformacion;
 DROP TRIGGER IF EXISTS tg_habilidades_bd ON tieneprioridad;
 
 
-
 SELECT table_name 
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
@@ -809,3 +961,4 @@ AND table_type = 'BASE TABLE';
 select * from notificaciones;
 
 drop database agisworld;
+

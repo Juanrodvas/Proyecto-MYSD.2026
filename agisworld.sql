@@ -732,8 +732,7 @@ $$ LANGUAGE plpgsql;
 -- Datos de apoyo: un candidato sin plan y un evaluador que aun no evalua ningun plan
 INSERT INTO candidatos (correo, nombres) VALUES
 ('sofia.mora@mail.com', 'Sofia Mora'),
-('diego.rios@mail.com', 'Diego Rios')
-ON CONFLICT (correo) DO NOTHING;
+('diego.rios@mail.com', 'Diego Rios');
 
 -- Caso 1: Registrar un plan. Queda en Diseño, con la fecha de hoy y sin fecha de fin.
 SELECT sv_planes.ad('sofia.mora@mail.com', 'diego.rios@mail.com');
@@ -874,8 +873,7 @@ grant execute on all functions in schema sv_junta to junta_administradora;
 -- Datos de apoyo: un candidato sin plan y un evaluador que aun no evalua ningun plan
 INSERT INTO candidatos (correo, nombres) VALUES
 ('valentina.castro@mail.com', 'Valentina Castro'),
-('andres.vega@mail.com', 'Andres Vega')
-ON CONFLICT (correo) DO NOTHING;
+('andres.vega@mail.com', 'Andres Vega');
 
 -- Caso 1: El candidato registra su plan. Ejecutando por bloques sin las pruebas que fallan, queda como el plan 7.
 -- Si el numero que devuelve es otro, se debe cambiar en los casos siguientes.
@@ -926,6 +924,68 @@ RESET ROLE;
 -- Resultado esperado: error 'permission denied for schema sv_candidato'.
 SET ROLE junta_administradora;
 SELECT sv_candidato.ad('sofia.mora@mail.com', 'andres.vega@mail.com');
+RESET ROLE;
+
+
+-- PRUEBA DE ACEPTACION
+-- Historia: Camila Herrera entra a AGISWorld y arma su plan de formacion del año con
+-- Mateo Silva como evaluador. Agrega habilidades, se arrepiente de una, intenta trampas
+-- que el sistema no le permite y al final la Junta revisa como va su formacion.
+-- Datos de apoyo (no son parte de la historia): los dos candidatos deben existir.
+-- Ejecutando por bloques sin las pruebas que fallan, el plan de Camila queda como el plan 8.
+-- Si el numero que devuelve el paso 1 es otro, se debe cambiar en los pasos siguientes.
+INSERT INTO candidatos (correo, nombres) VALUES
+('camila.herrera@mail.com', 'Camila Herrera'),
+('mateo.silva@mail.com', 'Mateo Silva');
+
+-- Paso 1: Camila registra su plan de formacion con Mateo como evaluador.
+SET ROLE candidato;
+SELECT sv_candidato.ad('camila.herrera@mail.com', 'mateo.silva@mail.com');
+
+-- Paso 2: Camila agrega SQL con prioridad ALTA y UML con prioridad MEDIA.
+SELECT sv_candidato.ad_habilidad(8, 'SQL', 'ALTA');
+SELECT sv_candidato.ad_habilidad(8, 'UML', 'MEDIA');
+
+-- Paso 3: Tambien agrega TEST con prioridad BAJA.
+SELECT sv_candidato.ad_habilidad(8, 'TEST', 'BAJA');
+
+-- Paso 4: Camila consulta su plan y confirma que tiene las tres habilidades.
+BEGIN;
+SELECT sv_candidato.co(8);
+FETCH ALL FROM co_cursor;
+COMMIT;
+
+-- Paso 5: Decide que TEST no es prioridad este año y la quita del plan.
+SELECT sv_candidato.de_habilidad(8, 'TEST');
+
+-- Paso 6: Consulta de nuevo y confirma que solo quedan SQL y UML.
+BEGIN;
+SELECT sv_candidato.co(8);
+FETCH ALL FROM co_cursor;
+COMMIT;
+
+-- Paso 7: Camila intenta registrar un segundo plan este año con otro evaluador.
+-- Resultado esperado: error 'El candidato ya registro un plan de formacion este año'.
+SELECT sv_candidato.ad('camila.herrera@mail.com', 'andres.vega@mail.com');
+
+-- Paso 8: Camila intenta aprobar su propio plan usando el servicio de la Junta.
+-- Resultado esperado: error 'permission denied for schema sv_junta'.
+SELECT sv_junta.up_estado(8, 'Aprobado');
+RESET ROLE;
+
+-- Paso 9: La Junta consulta el estado de formacion por habilidades del plan de Camila.
+-- SQL y UML aparecen 'sin iniciar' porque aun no tiene avances en los cursos.
+SET ROLE junta_administradora;
+BEGIN;
+SELECT sv_junta.co_estado_habilidades(8);
+FETCH ALL FROM co_estado_habilidades_cursor;
+COMMIT;
+
+-- Paso 10: La Junta consulta el plan y confirma las habilidades que Camila dejo.
+BEGIN;
+SELECT sv_junta.co(8);
+FETCH ALL FROM co_cursor;
+COMMIT;
 RESET ROLE;
 
 

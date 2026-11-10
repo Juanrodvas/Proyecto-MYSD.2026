@@ -6,6 +6,9 @@
 -- ============================================================
 
 -- XTablas
+DROP TABLE IF EXISTS Menus_platos;
+DROP TABLE IF EXISTS Menus;
+DROP TABLE IF EXISTS Recetas_ingredientes;
 DROP TABLE IF EXISTS Desperdicios;
 DROP TABLE IF EXISTS Ventas;
 DROP TABLE IF EXISTS Detalles_compra;
@@ -43,15 +46,23 @@ CREATE TABLE Causas_desperdicio (
 CREATE TABLE Ingredientes (
     id_ingrediente     SERIAL,
     nombre             VARCHAR(100) NOT NULL,
-    Fecha_vencimiento  DATE
+    Fecha_vencimiento  DATE,
+    unidad_medida      VARCHAR(10) NOT NULL DEFAULT 'kg',
+    stock_minimo       DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE Recetas (
     id_receta          SERIAL,
     Nombre             VARCHAR(100) NOT NULL,
     tiempo_preparacion INT,
-    Descripcion        VARCHAR(255),
-    ingredientes       VARCHAR(255)
+    Descripcion        VARCHAR(255)
+);
+
+-- Cuánto lleva cada receta de cada ingrediente (reemplaza el texto Recetas.ingredientes)
+CREATE TABLE Recetas_ingredientes (
+    id_receta       INT NOT NULL,
+    id_ingrediente  INT NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL
 );
 
 CREATE TABLE Cocineros (
@@ -66,15 +77,16 @@ CREATE TABLE Meseros (
 
 CREATE TABLE Inventarios (
     id_ingrediente      INT NOT NULL,
-    cantidad            INT NOT NULL DEFAULT 0
+    cantidad            DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE Movimientos_inventario (
     id_movimiento   SERIAL,
     fecha           DATE NOT NULL,
     tipo_movimiento VARCHAR(20) NOT NULL,
-    cantidad        INT NOT NULL,
-    id_ingrediente  INT NOT NULL
+    cantidad        DECIMAL(10,2) NOT NULL,
+    id_ingrediente  INT NOT NULL,
+    origen          VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE Compras (
@@ -86,7 +98,7 @@ CREATE TABLE Compras (
 
 CREATE TABLE Detalles_compra (
     id_detalle      SERIAL,
-    cantidad        INT NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL,
     Total           DECIMAL(10,2) NOT NULL,
     id_compra       INT NOT NULL,
     id_ingrediente  INT NOT NULL
@@ -103,16 +115,33 @@ CREATE TABLE Ventas (
     id_venta      SERIAL,
     fecha_venta   DATE NOT NULL,
     precio        DECIMAL(10,2) NOT NULL,
-    id_plato      INT NOT NULL
+    id_plato      INT NOT NULL,
+    cantidad      INT NOT NULL DEFAULT 1
 );
 
 CREATE TABLE Desperdicios (
     id_desperdicio              SERIAL,
     fecha                       DATE NOT NULL,
-    ingredientes_desperdiciados VARCHAR(255),
+    cantidad                    DECIMAL(10,2) NOT NULL,
     id_ingrediente              INT NOT NULL,
     id_empleado                 INT NOT NULL,
     id_causa                    INT NOT NULL
+);
+
+-- Lo que ofrece el restaurante
+CREATE TABLE Menus (
+    id_menu       SERIAL,
+    nombre        VARCHAR(100) NOT NULL,
+    fecha_inicio  DATE NOT NULL,
+    fecha_fin     DATE,
+    activo        BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE Menus_platos (
+    id_menu     INT NOT NULL,
+    id_plato    INT NOT NULL,
+    precio      DECIMAL(10,2) NOT NULL,
+    disponible  BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- Atributos
@@ -139,6 +168,27 @@ ADD CONSTRAINT ck_movimiento_tipo CHECK (tipo_movimiento IN ('Entrada', 'Salida'
 
 ALTER TABLE Movimientos_inventario
 ADD CONSTRAINT ck_movimiento_cantidad CHECK (cantidad > 0);
+
+ALTER TABLE Movimientos_inventario
+ADD CONSTRAINT ck_movimiento_origen CHECK (origen IN ('Compra', 'Venta', 'Desperdicio'));
+
+ALTER TABLE Ingredientes
+ADD CONSTRAINT ck_ingrediente_unidad CHECK (unidad_medida IN ('kg', 'g', 'L', 'unidad'));
+
+ALTER TABLE Ingredientes
+ADD CONSTRAINT ck_ingrediente_stock_minimo CHECK (stock_minimo >= 0);
+
+ALTER TABLE Recetas_ingredientes
+ADD CONSTRAINT ck_receta_ingrediente_cantidad CHECK (cantidad > 0);
+
+ALTER TABLE Desperdicios
+ADD CONSTRAINT ck_desperdicio_cantidad CHECK (cantidad > 0);
+
+ALTER TABLE Ventas
+ADD CONSTRAINT ck_venta_cantidad CHECK (cantidad > 0);
+
+ALTER TABLE Menus_platos
+ADD CONSTRAINT ck_menu_plato_precio CHECK (precio > 0);
 
 ALTER TABLE Detalles_compra
 ADD CONSTRAINT ck_detalle_cantidad CHECK (cantidad > 0);
@@ -195,6 +245,15 @@ ADD CONSTRAINT pk_ventas PRIMARY KEY (id_venta);
 ALTER TABLE Desperdicios
 ADD CONSTRAINT pk_desperdicios PRIMARY KEY (id_desperdicio);
 
+ALTER TABLE Recetas_ingredientes
+ADD CONSTRAINT pk_recetas_ingredientes PRIMARY KEY (id_receta, id_ingrediente);
+
+ALTER TABLE Menus
+ADD CONSTRAINT pk_menus PRIMARY KEY (id_menu);
+
+ALTER TABLE Menus_platos
+ADD CONSTRAINT pk_menus_platos PRIMARY KEY (id_menu, id_plato);
+
 -- Foraneas
 ALTER TABLE Cocineros
 ADD CONSTRAINT fk_cocinero_empleado
@@ -247,6 +306,24 @@ ALTER TABLE Desperdicios
 ADD CONSTRAINT fk_desperdicio_causa
 FOREIGN KEY (id_causa) REFERENCES Causas_desperdicio(id_causa);
 
+ALTER TABLE Recetas_ingredientes
+ADD CONSTRAINT fk_receta_ingrediente_receta
+FOREIGN KEY (id_receta) REFERENCES Recetas(id_receta)
+ON DELETE CASCADE;
+
+ALTER TABLE Recetas_ingredientes
+ADD CONSTRAINT fk_receta_ingrediente_ingrediente
+FOREIGN KEY (id_ingrediente) REFERENCES Ingredientes(id_ingrediente);
+
+ALTER TABLE Menus_platos
+ADD CONSTRAINT fk_menu_plato_menu
+FOREIGN KEY (id_menu) REFERENCES Menus(id_menu)
+ON DELETE CASCADE;
+
+ALTER TABLE Menus_platos
+ADD CONSTRAINT fk_menu_plato_plato
+FOREIGN KEY (id_plato) REFERENCES Platos(id_plato);
+
 -- Unicas
 ALTER TABLE Proveedores
 ADD CONSTRAINT uq_proveedor_correo UNIQUE (correo);
@@ -259,6 +336,9 @@ ADD CONSTRAINT uq_receta_nombre UNIQUE (Nombre);
 
 ALTER TABLE Ingredientes
 ADD CONSTRAINT uq_ingrediente_nombre UNIQUE (nombre);
+
+ALTER TABLE Menus
+ADD CONSTRAINT uq_menu_nombre UNIQUE (nombre);
 
 -- PoblarOK
 INSERT INTO Proveedores (nombre, telefono, correo) VALUES
@@ -277,17 +357,17 @@ INSERT INTO Causas_desperdicio (descripcion) VALUES
 ('Error de preparación'),
 ('Sobreproducción');
 
-INSERT INTO Ingredientes (nombre, Fecha_vencimiento) VALUES
-('Arroz',        '2026-12-01'),
-('Papa criolla', '2026-11-15'),
-('Carne de res', '2027-01-20'),
-('Pollo',        '2026-10-10'),
-('Fríjol',       '2026-12-25');
+INSERT INTO Ingredientes (nombre, Fecha_vencimiento, unidad_medida, stock_minimo) VALUES
+('Arroz',        '2026-12-01', 'kg', 10),
+('Papa criolla', '2026-11-15', 'kg', 10),
+('Carne de res', '2027-01-20', 'kg', 15),
+('Pollo',        '2026-10-10', 'kg', 10),
+('Fríjol',       '2026-12-25', 'kg', 8);
 
-INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes) VALUES
-('Bandeja Paisa',       45, 'Plato típico colombiano',        'carne, frijol, arroz, chicharrón, huevo, plátano'),
-('Ajiaco Santafereño',  60, 'Sopa típica bogotana',           'pollo, papa criolla, mazorca, guascas'),
-('Ensalada César',      20, 'Ensalada con pollo a la parrilla','lechuga, pollo, queso parmesano, crutones');
+INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion) VALUES
+('Bandeja Paisa',       45, 'Plato típico colombiano'),
+('Ajiaco Santafereño',  60, 'Sopa típica bogotana'),
+('Ensalada César',      20, 'Ensalada con pollo a la parrilla');
 
 INSERT INTO Cocineros (id_empleado, Especialidad) VALUES
 (1, 'Cocina Colombiana'),
@@ -304,10 +384,10 @@ INSERT INTO Inventarios (id_ingrediente, cantidad) VALUES
 (4, 15),
 (5, 60);
 
-INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente) VALUES
-('2026-09-20', 'Entrada', 20, 1),
-('2026-09-21', 'Salida',  5,  2),
-('2026-09-22', 'Entrada', 10, 3);
+INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen) VALUES
+('2026-09-20', 'Entrada', 20, 1, 'Compra'),
+('2026-09-21', 'Salida',  5,  2, 'Venta'),
+('2026-09-22', 'Entrada', 10, 3, 'Compra');
 
 INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor) VALUES
 ('2026-09-15', '2026-09-17', 1),
@@ -324,15 +404,15 @@ INSERT INTO Platos (nombre, tiempo_preparacion, id_receta) VALUES
 ('Ajiaco Santafereño', 60, 2),
 ('Ensalada César',     20, 3);
 
-INSERT INTO Ventas (fecha_venta, precio, id_plato) VALUES
-('2026-09-24', 25000.00, 1),
-('2026-09-24', 18000.00, 2),
-('2026-09-25', 15000.00, 3),
-('2026-09-25', 25000.00, 1);
+INSERT INTO Ventas (fecha_venta, precio, id_plato, cantidad) VALUES
+('2026-09-24', 25000.00, 1, 2),
+('2026-09-24', 18000.00, 2, 1),
+('2026-09-25', 15000.00, 3, 3),
+('2026-09-25', 25000.00, 1, 1);
 
-INSERT INTO Desperdicios (fecha, ingredientes_desperdiciados, id_ingrediente, id_empleado, id_causa) VALUES
-('2026-09-23', 'Papa criolla en mal estado',      2, 1, 1),
-('2026-09-24', 'Exceso de preparación de ajiaco', 4, 3, 3);
+INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa) VALUES
+('2026-09-23', 2.5, 2, 1, 1),
+('2026-09-24', 1.2, 4, 3, 3);
 
 -- PoblarOK automático: completa cada tabla hasta al menos 15 filas
 INSERT INTO Proveedores (nombre, telefono, correo)
@@ -367,14 +447,17 @@ SELECT
         'Pedido cancelado', 'Falla de equipo', 'Recibido en mal estado'])[i]
 FROM generate_series(1, 12) AS i;
 
-INSERT INTO Ingredientes (nombre, Fecha_vencimiento)
+INSERT INTO Ingredientes (nombre, Fecha_vencimiento, unidad_medida, stock_minimo)
 SELECT
     (ARRAY['Plátano', 'Huevo', 'Queso costeño', 'Yuca', 'Cebolla larga',
         'Mazorca', 'Cilantro', 'Leche', 'Camarón', 'Lechuga'])[i],
-    DATE '2026-11-01' + i * 7
+    DATE '2026-11-01' + i * 7,
+    (ARRAY['unidad', 'unidad', 'kg', 'kg', 'kg',
+        'unidad', 'kg', 'L', 'kg', 'kg'])[i],
+    (ARRAY[20, 30, 5, 8, 3, 15, 1, 10, 5, 4])[i]
 FROM generate_series(1, 10) AS i;
 
-INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
+INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion)
 SELECT
     (ARRAY['Sancocho de Gallina', 'Arroz con Pollo', 'Mondongo', 'Lechona',
         'Tamal Tolimense', 'Cazuela de Mariscos', 'Posta Negra', 'Sobrebarriga',
@@ -385,14 +468,28 @@ SELECT
         'Masa de maíz rellena envuelta en hoja', 'Mariscos en salsa cremosa',
         'Carne en salsa de panela, receta cartagenera', 'Falda de res en salsa criolla',
         'Frijoles con garra y hogao', 'Sopa costeña de ñame y queso',
-        'Arroz caldoso vallecaucano', 'Pescado cocido al vapor con plátano'])[i],
-    (ARRAY['gallina, papa, yuca, mazorca, cilantro', 'arroz, pollo, zanahoria, arveja, pimentón',
-        'callo, papa, yuca, garbanzo, cilantro', 'cerdo, arroz, arveja, cebolla, comino',
-        'maíz, cerdo, pollo, huevo, zanahoria', 'camarón, calamar, pescado, crema de leche, coco',
-        'muchacho de res, panela, cebolla, vino tinto', 'sobrebarriga, tomate, cebolla, papa',
-        'frijol, garra de cerdo, plátano, hogao', 'ñame, queso costeño, cebolla, ajo',
-        'arroz, pollo, costilla, papa, chorizo', 'bagre, plátano, yuca, cebolla, tomate'])[i]
+        'Arroz caldoso vallecaucano', 'Pescado cocido al vapor con plátano'])[i]
 FROM generate_series(1, 12) AS i;
+
+-- Ingredientes de cada receta, con la cantidad que lleva UNA porción
+-- Ingredientes: 1 Arroz, 2 Papa criolla, 3 Carne de res, 4 Pollo, 5 Fríjol, 6 Plátano, 7 Huevo,
+-- 8 Queso costeño, 9 Yuca, 10 Cebolla larga, 11 Mazorca, 12 Cilantro, 13 Leche, 14 Camarón, 15 Lechuga
+INSERT INTO Recetas_ingredientes (id_receta, id_ingrediente, cantidad) VALUES
+(1, 3, 0.25), (1, 5, 0.20), (1, 1, 0.15), (1, 6, 1),    (1, 7, 1),       -- Bandeja Paisa
+(2, 4, 0.30), (2, 2, 0.40), (2, 11, 1),   (2, 12, 0.01),                  -- Ajiaco Santafereño
+(3, 15, 0.15), (3, 4, 0.15), (3, 8, 0.05),                                -- Ensalada César
+(4, 4, 0.40), (4, 2, 0.20), (4, 9, 0.20), (4, 11, 1), (4, 12, 0.01),      -- Sancocho de Gallina
+(5, 1, 0.20), (5, 4, 0.25),                                               -- Arroz con Pollo
+(6, 2, 0.20), (6, 9, 0.20), (6, 12, 0.01),                                -- Mondongo
+(7, 1, 0.20), (7, 10, 0.05),                                              -- Lechona
+(8, 7, 1),    (8, 4, 0.15),                                               -- Tamal Tolimense
+(9, 14, 0.25), (9, 13, 0.10),                                             -- Cazuela de Mariscos
+(10, 3, 0.30), (10, 10, 0.05),                                            -- Posta Negra
+(11, 3, 0.30), (11, 2, 0.20),                                             -- Sobrebarriga
+(12, 5, 0.25), (12, 6, 1),                                                -- Frijolada
+(13, 8, 0.15), (13, 10, 0.03),                                            -- Mote de Queso
+(14, 1, 0.20), (14, 4, 0.20), (14, 2, 0.15),                              -- Arroz Atollado
+(15, 6, 1),    (15, 9, 0.20);                                             -- Viudo de Pescado
 
 INSERT INTO Cocineros (id_empleado, Especialidad)
 SELECT
@@ -414,12 +511,13 @@ SELECT
     20 + i * 5
 FROM generate_series(6, 15) AS i;
 
-INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente)
+INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
 SELECT
     DATE '2026-09-22' + i,
     CASE WHEN i % 2 = 0 THEN 'Entrada' ELSE 'Salida' END,
     2 + i % 4,
-    1 + i % 15
+    1 + i % 15,
+    CASE WHEN i % 2 = 0 THEN 'Compra' ELSE 'Venta' END
 FROM generate_series(1, 12) AS i;
 
 INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
@@ -447,21 +545,40 @@ SELECT
 FROM Recetas
 WHERE id_receta > 3;
 
-INSERT INTO Ventas (fecha_venta, precio, id_plato)
+INSERT INTO Ventas (fecha_venta, precio, id_plato, cantidad)
 SELECT
     DATE '2026-09-26' + i % 10,
     15000.00 + (i % 5) * 3000,
-    1 + i % 15
+    1 + i % 15,
+    1 + i % 3
 FROM generate_series(1, 11) AS i;
 
-INSERT INTO Desperdicios (fecha, ingredientes_desperdiciados, id_ingrediente, id_empleado, id_causa)
+INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
 SELECT
     DATE '2026-09-25' + i,
-    'Merma de ' || (SELECT nombre FROM Ingredientes WHERE id_ingrediente = 1 + i % 15),
+    0.5 + (i % 4) * 0.5,
     1 + i % 15,
     4 + i,
     1 + i % 15
 FROM generate_series(1, 13) AS i;
+
+-- Menús: lo que ofrece el restaurante
+INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo) VALUES
+('Carta principal', '2026-09-01', NULL,         TRUE),
+('Menú del día',    '2026-10-01', '2026-10-31', FALSE),
+('Menú navideño',   '2026-12-01', '2026-12-31', FALSE);
+
+-- La carta principal ofrece todos los platos
+INSERT INTO Menus_platos (id_menu, id_plato, precio, disponible)
+SELECT 1, id_plato, 15000.00 + (id_plato % 5) * 3000, TRUE
+FROM Platos;
+
+INSERT INTO Menus_platos (id_menu, id_plato, precio, disponible) VALUES
+(2, 2, 14000.00, TRUE),
+(2, 5, 13000.00, TRUE),
+(2, 11, 15000.00, FALSE),
+(3, 8, 22000.00, TRUE),
+(3, 7, 28000.00, TRUE);
 
 -- Consultas
 SELECT
@@ -506,10 +623,13 @@ ORDER BY m.fecha DESC;
 SELECT
     d.id_desperdicio,
     d.fecha,
-    d.ingredientes_desperdiciados,
+    ing.nombre      AS ingrediente,
+    d.cantidad,
+    ing.unidad_medida,
     e.nombre        AS empleado,
     ca.descripcion  AS causa
 FROM Desperdicios d
+JOIN Ingredientes ing      ON ing.id_ingrediente = d.id_ingrediente
 JOIN Empleados e          ON e.id_empleado = d.id_empleado
 JOIN Causas_desperdicio ca ON ca.id_causa = d.id_causa
 ORDER BY d.fecha DESC;
@@ -517,6 +637,7 @@ ORDER BY d.fecha DESC;
 SELECT
     v.id_venta,
     v.fecha_venta,
+    v.cantidad,
     v.precio,
     pl.nombre AS plato
 FROM Ventas v
@@ -526,8 +647,8 @@ ORDER BY v.fecha_venta DESC;
 SELECT
     pl.id_plato,
     pl.nombre,
-    COUNT(v.id_venta)   AS veces_vendido,
-    SUM(v.precio)        AS ingresos_generados
+    SUM(v.cantidad)              AS veces_vendido,
+    SUM(v.precio * v.cantidad)   AS ingresos_generados
 FROM Ventas v
 JOIN Platos pl ON pl.id_plato = v.id_plato
 GROUP BY pl.id_plato, pl.nombre
@@ -545,10 +666,12 @@ WHERE inv.cantidad > 0;
 SELECT
     d.id_desperdicio,
     d.fecha,
-    d.ingredientes_desperdiciados,
+    ing.nombre     AS ingrediente,
+    d.cantidad,
     e.nombre       AS empleado,
     ca.descripcion AS causa
 FROM Desperdicios d
+JOIN Ingredientes ing      ON ing.id_ingrediente = d.id_ingrediente
 JOIN Empleados e           ON e.id_empleado = d.id_empleado
 JOIN Causas_desperdicio ca ON ca.id_causa = d.id_causa
 WHERE d.fecha = CURRENT_DATE;
@@ -571,22 +694,110 @@ SELECT
     r.Nombre               AS receta,
     r.Descripcion,
     r.tiempo_preparacion,
-    r.ingredientes
+    STRING_AGG(ing.nombre || ' ' || ri.cantidad || ' ' || ing.unidad_medida, ', '
+               ORDER BY ing.nombre) AS ingredientes
 FROM Platos pl
-JOIN Recetas r ON r.id_receta = pl.id_receta;
+JOIN Recetas r                   ON r.id_receta = pl.id_receta
+LEFT JOIN Recetas_ingredientes ri ON ri.id_receta = r.id_receta
+LEFT JOIN Ingredientes ing        ON ing.id_ingrediente = ri.id_ingrediente
+GROUP BY pl.id_plato, pl.nombre, r.Nombre, r.Descripcion, r.tiempo_preparacion;
 
+-- Disponibilidad de platos e ingredientes: cada plato con sus ingredientes,
+-- lo que necesita por porción y lo que hay en inventario
 SELECT
     pl.id_plato,
     pl.nombre         AS plato,
-    r.Nombre           AS receta,
-    ing.id_ingrediente,
     ing.nombre        AS ingrediente,
-    inv.cantidad
+    ri.cantidad       AS necesita_por_porcion,
+    inv.cantidad      AS hay_en_inventario,
+    FLOOR(inv.cantidad / ri.cantidad) AS porciones_posibles
 FROM Platos pl
-JOIN Recetas r          ON r.id_receta = pl.id_receta
-CROSS JOIN Ingredientes ing
-JOIN Inventarios inv    ON inv.id_ingrediente = ing.id_ingrediente
-WHERE inv.cantidad > 0;
+JOIN Recetas_ingredientes ri ON ri.id_receta = pl.id_receta
+JOIN Ingredientes ing        ON ing.id_ingrediente = ri.id_ingrediente
+JOIN Inventarios inv         ON inv.id_ingrediente = ing.id_ingrediente
+ORDER BY pl.nombre, ing.nombre;
+
+-- ===== Consultas de la retroalimentación: problemas de stock y tracking =====
+
+-- R1. Gasto mensual de cada ingrediente (todo lo que salió: ventas y desperdicio)
+SELECT
+    TO_CHAR(DATE_TRUNC('month', m.fecha), 'YYYY-MM') AS mes,
+    ing.nombre                                        AS ingrediente,
+    SUM(m.cantidad)                                   AS total_gastado,
+    ing.unidad_medida
+FROM Movimientos_inventario m
+JOIN Ingredientes ing ON ing.id_ingrediente = m.id_ingrediente
+WHERE m.tipo_movimiento = 'Salida'
+GROUP BY DATE_TRUNC('month', m.fecha), ing.nombre, ing.unidad_medida
+ORDER BY mes, total_gastado DESC;
+
+-- R2. ¿Cómo ha sido el movimiento de un ingrediente en los últimos 3 meses? (ejemplo: Pollo)
+SELECT
+    TO_CHAR(DATE_TRUNC('month', m.fecha), 'YYYY-MM')                     AS mes,
+    SUM(CASE WHEN m.origen = 'Compra'      THEN m.cantidad ELSE 0 END)    AS entro_por_compras,
+    SUM(CASE WHEN m.origen = 'Venta'       THEN m.cantidad ELSE 0 END)    AS salio_por_ventas,
+    SUM(CASE WHEN m.origen = 'Desperdicio' THEN m.cantidad ELSE 0 END)    AS salio_por_desperdicio
+FROM Movimientos_inventario m
+JOIN Ingredientes ing ON ing.id_ingrediente = m.id_ingrediente
+WHERE ing.nombre = 'Pollo'
+  AND m.fecha >= CURRENT_DATE - INTERVAL '3 months'
+GROUP BY DATE_TRUNC('month', m.fecha)
+ORDER BY mes;
+
+-- R3. ¿Tengo suficiente de cada ingrediente? Stock actual vs. gasto promedio de los últimos 3 meses
+SELECT
+    ing.nombre                                  AS ingrediente,
+    inv.cantidad                                AS stock_actual,
+    ing.stock_minimo,
+    ROUND(COALESCE(g.gastado, 0) / 3, 2)        AS gasto_promedio_mes,
+    CASE WHEN COALESCE(g.gastado, 0) = 0 THEN NULL
+         ELSE FLOOR(inv.cantidad / (g.gastado / 90)) END AS dias_que_alcanza,
+    CASE
+        WHEN inv.cantidad <= ing.stock_minimo                       THEN 'PEDIR YA'
+        WHEN g.gastado > 0 AND inv.cantidad / (g.gastado / 90) < 15 THEN 'PEDIR PRONTO'
+        ELSE 'OK'
+    END                                         AS estado
+FROM Ingredientes ing
+JOIN Inventarios inv ON inv.id_ingrediente = ing.id_ingrediente
+LEFT JOIN (
+    SELECT id_ingrediente, SUM(cantidad) AS gastado
+    FROM Movimientos_inventario
+    WHERE tipo_movimiento = 'Salida'
+      AND fecha >= CURRENT_DATE - INTERVAL '3 months'
+    GROUP BY id_ingrediente
+) g ON g.id_ingrediente = ing.id_ingrediente
+ORDER BY estado, ing.nombre;
+
+-- R4. Ingredientes por debajo del stock mínimo (lista de compras)
+SELECT
+    ing.nombre,
+    inv.cantidad                          AS stock_actual,
+    ing.stock_minimo,
+    ing.stock_minimo - inv.cantidad       AS faltante,
+    ing.unidad_medida
+FROM Ingredientes ing
+JOIN Inventarios inv ON inv.id_ingrediente = ing.id_ingrediente
+WHERE inv.cantidad <= ing.stock_minimo
+ORDER BY faltante DESC;
+
+-- R5. Platos del menú activo en riesgo: algún ingrediente está bajo el stock mínimo
+--     o no alcanza ni para una porción
+SELECT
+    mn.nombre        AS menu,
+    pl.nombre        AS plato,
+    ing.nombre       AS ingrediente_en_riesgo,
+    ri.cantidad      AS necesita_por_porcion,
+    inv.cantidad     AS stock_actual,
+    ing.stock_minimo
+FROM Menus mn
+JOIN Menus_platos mp         ON mp.id_menu = mn.id_menu AND mp.disponible
+JOIN Platos pl               ON pl.id_plato = mp.id_plato
+JOIN Recetas_ingredientes ri ON ri.id_receta = pl.id_receta
+JOIN Ingredientes ing        ON ing.id_ingrediente = ri.id_ingrediente
+JOIN Inventarios inv         ON inv.id_ingrediente = ing.id_ingrediente
+WHERE mn.activo
+  AND (inv.cantidad < ri.cantidad OR inv.cantidad <= ing.stock_minimo)
+ORDER BY pl.nombre, ing.nombre;
 
 -- PoblarNoOK
 -- INSERT INTO Proveedores (nombre, telefono, correo)
@@ -595,8 +806,8 @@ WHERE inv.cantidad > 0;
 -- INSERT INTO Platos (nombre, tiempo_preparacion, id_receta)
 -- VALUES ('Bandeja Paisa', 50, 1);
 
--- INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
--- VALUES ('Ajiaco Santafereño', 55, 'Otra versión', 'pollo, papa');
+-- INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion)
+-- VALUES ('Ajiaco Santafereño', 55, 'Otra versión');
 
 -- INSERT INTO Ingredientes (nombre, Fecha_vencimiento)
 -- VALUES ('Arroz', '2027-03-01');
@@ -642,6 +853,24 @@ WHERE inv.cantidad > 0;
 -- INSERT INTO Ventas (fecha_venta, precio, id_plato)
 -- VALUES ('2026-10-01', 0, 1);
 
+-- INSERT INTO Ventas (fecha_venta, precio, id_plato, cantidad)
+-- VALUES ('2026-10-01', 18000.00, 1, 0);
+
+-- INSERT INTO Recetas_ingredientes (id_receta, id_ingrediente, cantidad)
+-- VALUES (1, 3, 0.10);
+
+-- INSERT INTO Recetas_ingredientes (id_receta, id_ingrediente, cantidad)
+-- VALUES (1, 2, 0);
+
+-- INSERT INTO Ingredientes (nombre, Fecha_vencimiento, unidad_medida, stock_minimo)
+-- VALUES ('Sal', '2027-01-01', 'libras', 1);
+
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+-- VALUES ('2026-10-01', 'Entrada', 5, 1, 'Regalo');
+
+-- INSERT INTO Menus_platos (id_menu, id_plato, precio, disponible)
+-- VALUES (1, 1, 20000.00, TRUE);
+
 -- Tuplas
 ALTER TABLE Proveedores
 ADD CONSTRAINT ck_proveedor_contacto
@@ -651,9 +880,9 @@ ALTER TABLE Compras
 ADD CONSTRAINT ck_compra_fechas
 CHECK (Fecha_recepcion IS NULL OR Fecha_recepcion >= Fecha_compra);
 
-ALTER TABLE Recetas
-ADD CONSTRAINT ck_receta_contenido
-CHECK (Descripcion IS NOT NULL OR ingredientes IS NOT NULL);
+ALTER TABLE Menus
+ADD CONSTRAINT ck_menu_fechas
+CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio);
 
 -- TuplasOK
 INSERT INTO Proveedores (nombre, telefono, correo)
@@ -668,11 +897,11 @@ VALUES ('2026-10-01', '2026-10-03', 1);
 INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
 VALUES ('2026-10-05', '2026-10-05', 2);
 
-INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
-VALUES ('Arepa de Choclo', 15, 'Arepa dulce de maíz tierno', NULL);
+INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
+VALUES ('Menú de temporada', '2027-01-01', NULL, FALSE);
 
-INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
-VALUES ('Changua', 20, NULL, 'leche, huevo, cebolla larga, cilantro, pan');
+INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
+VALUES ('Menú de un día', '2027-02-14', '2027-02-14', FALSE);
 
 -- TuplasNoOK
 -- INSERT INTO Proveedores (nombre, telefono, correo)
@@ -681,10 +910,13 @@ VALUES ('Changua', 20, NULL, 'leche, huevo, cebolla larga, cilantro, pan');
 -- INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
 -- VALUES ('2026-10-10', '2026-10-01', 1);
 
--- INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion, ingredientes)
--- VALUES ('Receta Vacía', 30, NULL, NULL);
+-- INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
+-- VALUES ('Menú al revés', '2027-03-10', '2027-03-01', TRUE);
 
 -- XPoblar
+-- DROP TABLE IF EXISTS Menus_platos CASCADE;
+-- DROP TABLE IF EXISTS Menus CASCADE;
+-- DROP TABLE IF EXISTS Recetas_ingredientes CASCADE;
 -- DROP TABLE IF EXISTS Desperdicios CASCADE;
 -- DROP TABLE IF EXISTS Ventas CASCADE;
 -- DROP TABLE IF EXISTS Platos CASCADE;
@@ -777,8 +1009,8 @@ AND d.id_ingrediente = Inventarios.id_ingrediente)
 FROM Detalles_compra
 WHERE id_compra = NEW.id_compra);
 
-INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente)
-        SELECT NEW.Fecha_recepcion, 'Entrada', SUM(cantidad), id_ingrediente
+INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+        SELECT NEW.Fecha_recepcion, 'Entrada', SUM(cantidad), id_ingrediente, 'Compra'
         FROM Detalles_compra
         WHERE id_compra = NEW.id_compra
         GROUP BY id_ingrediente;
@@ -796,7 +1028,7 @@ FOR EACH ROW EXECUTE FUNCTION f_recibir_compra();
 ---Disparador 3: no sacar más de lo que hay en el inventario
 CREATE OR REPLACE FUNCTION f_salida_con_inventario() RETURNS TRIGGER AS $$
 DECLARE
-    v_cantidad INT;
+    v_cantidad DECIMAL(10,2);
 BEGIN
     IF NEW.tipo_movimiento = 'Salida' THEN
         SELECT cantidad INTO v_cantidad
@@ -855,6 +1087,38 @@ CREATE TRIGGER t_descontar_salida
 AFTER INSERT ON Movimientos_inventario
 FOR EACH ROW EXECUTE FUNCTION f_descontar_salida();
 
+---Disparador 6: al vender un plato, registrar la salida de cada ingrediente de su receta
+---(cantidad por porción x platos vendidos). Los disparadores 3 y 5 validan y descuentan.
+CREATE OR REPLACE FUNCTION f_venta_descontar_ingredientes() RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+    SELECT NEW.fecha_venta, 'Salida', ri.cantidad * NEW.cantidad, ri.id_ingrediente, 'Venta'
+    FROM Platos p
+    JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
+    WHERE p.id_plato = NEW.id_plato;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER t_venta_descontar_ingredientes
+AFTER INSERT ON Ventas
+FOR EACH ROW EXECUTE FUNCTION f_venta_descontar_ingredientes();
+
+---Disparador 7: al registrar un desperdicio, registrar su salida del inventario
+CREATE OR REPLACE FUNCTION f_desperdicio_descontar() RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+    VALUES (NEW.fecha, 'Salida', NEW.cantidad, NEW.id_ingrediente, 'Desperdicio');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER t_desperdicio_descontar
+AFTER INSERT ON Desperdicios
+FOR EACH ROW EXECUTE FUNCTION f_desperdicio_descontar();
+
 -- DisparadoresOK
 INSERT INTO Empleados (nombre, salario)
 VALUES ('Camila Rojas', 1700000.00);
@@ -874,8 +1138,8 @@ SELECT * FROM Movimientos_inventario WHERE id_ingrediente = 3;
 
 SELECT * FROM Inventarios WHERE id_ingrediente = 1;
 
-INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente)
-VALUES ('2026-10-01', 'Salida', 8, 1);
+INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+VALUES ('2026-10-01', 'Salida', 8, 1, 'Venta');
 
 SELECT * FROM Movimientos_inventario WHERE id_ingrediente = 1;
 
@@ -889,6 +1153,25 @@ VALUES ((SELECT id_empleado FROM Empleados WHERE nombre = 'Ricardo Pineda'), 'No
 
 SELECT * FROM Meseros;
 
+-- Disparador 6: se venden 2 Ajiacos (receta: 0.30 kg pollo, 0.40 kg papa, 1 mazorca, 0.01 kg cilantro)
+-- y el inventario de esos 4 ingredientes baja solo
+SELECT * FROM Inventarios WHERE id_ingrediente IN (2, 4, 11, 12) ORDER BY id_ingrediente;
+
+INSERT INTO Ventas (fecha_venta, precio, id_plato, cantidad)
+VALUES ('2026-10-02', 18000.00, 2, 2);
+
+SELECT * FROM Movimientos_inventario WHERE origen = 'Venta' AND fecha = '2026-10-02';
+
+SELECT * FROM Inventarios WHERE id_ingrediente IN (2, 4, 11, 12) ORDER BY id_ingrediente;
+
+-- Disparador 7: se botan 1.5 kg de papa criolla y el inventario baja solo
+INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
+VALUES ('2026-10-03', 1.5, 2, 1, 1);
+
+SELECT * FROM Movimientos_inventario WHERE origen = 'Desperdicio' AND fecha = '2026-10-03';
+
+SELECT * FROM Inventarios WHERE id_ingrediente = 2;
+
 -- DisparadoresNoOK
 -- INSERT INTO Cocineros (id_empleado, Especialidad)
 -- VALUES (2, 'Postres');
@@ -896,11 +1179,19 @@ SELECT * FROM Meseros;
 -- UPDATE Cocineros SET id_empleado = 4 WHERE id_empleado = 1;
 
 -- UPDATE Inventarios SET cantidad = 0 WHERE id_ingrediente = 4;
--- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente)
--- VALUES ('2026-10-01', 'Salida', 1, 4);
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+-- VALUES ('2026-10-01', 'Salida', 1, 4, 'Venta');
 
--- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente)
--- VALUES ('2026-10-01', 'Salida', 999, 5);
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+-- VALUES ('2026-10-01', 'Salida', 999, 5, 'Venta');
+
+-- Venta de 100 Ajiacos: necesita 30 kg de pollo y no hay suficiente (disparadores 6 y 3)
+-- INSERT INTO Ventas (fecha_venta, precio, id_plato, cantidad)
+-- VALUES ('2026-10-04', 18000.00, 2, 100);
+
+-- Desperdicio mayor que lo que hay en inventario (disparadores 7 y 3)
+-- INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
+-- VALUES ('2026-10-04', 500, 3, 1, 1);
 
 -- INSERT INTO Meseros (id_empleado, turno)
 -- VALUES (1, 'Noche');
@@ -913,8 +1204,12 @@ SELECT * FROM Meseros;
 -- DROP TRIGGER IF EXISTS t_salida_con_inventario ON Movimientos_inventario;
 -- DROP TRIGGER IF EXISTS t_mesero_no_cocinero ON Meseros;
 -- DROP TRIGGER IF EXISTS t_descontar_salida ON Movimientos_inventario;
+-- DROP TRIGGER IF EXISTS t_venta_descontar_ingredientes ON Ventas;
+-- DROP TRIGGER IF EXISTS t_desperdicio_descontar ON Desperdicios;
 -- DROP FUNCTION IF EXISTS f_cocinero_no_mesero();
 -- DROP FUNCTION IF EXISTS f_recibir_compra();
 -- DROP FUNCTION IF EXISTS f_salida_con_inventario();
 -- DROP FUNCTION IF EXISTS f_mesero_no_cocinero();
 -- DROP FUNCTION IF EXISTS f_descontar_salida();
+-- DROP FUNCTION IF EXISTS f_venta_descontar_ingredientes();
+-- DROP FUNCTION IF EXISTS f_desperdicio_descontar();

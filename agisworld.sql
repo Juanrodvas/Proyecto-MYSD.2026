@@ -867,7 +867,7 @@ grant usage on schema sv_junta to junta_administradora;
 grant execute on all functions in schema sv_candidato to candidato;
 grant execute on all functions in schema sv_junta to junta_administradora;
 
-
+ROLLBACK;
 -- SEGURIDAD OK
 -- SET ROLE simula cada actor. Con las cuentas reales, se ejecuta iniciando sesion con cada usuario.
 -- Datos de apoyo: un candidato sin plan y un evaluador que aun no evalua ningun plan
@@ -1028,4 +1028,15 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA sv_candidato TO db1000108957;
 
 
 
+
+SET ROLE candidato;
+
+SELECT  sv_candidato.ad('jhojan.pulido@gmail.com', 'thomas@gmail.com');
+
+SET ROLE junta_administradora;
+
+BEGIN;
+SELECT sv_junta.co_estado_habilidades(7)
+FETCH ALL FROM   co_estado_habilidades_cursor;
+COMMIT;
 

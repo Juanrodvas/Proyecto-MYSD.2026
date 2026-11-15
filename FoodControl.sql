@@ -1,29 +1,12 @@
 -- ============================================================
 -- Proyecto MYSD 2026 - Base de datos completa (PostgreSQL)
--- Une: XTablas, Tablas, Atributos, Primarias, Llaves_Foraneas,
---      Unicas, PoblarOK, PoblarNOK, Tuplas, TuplasOK,
---      TuplasNoOK y PoblarX
+-- Orden: Tablas, Atributos, Primarias, Unicas, Foraneas, XTablas,
+--        ConsultasOperativas, ConsultasGerenciales, PoblarOK,
+--        PoblarNoOK, XPoblar, Tuplas, Disparadores, XDisparadores,
+--        TuplasOK, TuplasNoOK, AccionesOK, DisparadoresOK,
+--        DisparadoresNoOK, Componentes, XComponentes,
+--        ComponentesOK y ComponentesNoOK
 -- ============================================================
-
--- XTablas
-DROP TABLE IF EXISTS Menus_platos;
-DROP TABLE IF EXISTS Menus;
-DROP TABLE IF EXISTS Recetas_ingredientes;
-DROP TABLE IF EXISTS Movimientos_inventario;
-DROP TABLE IF EXISTS Desperdicios;
-DROP TABLE IF EXISTS Detalles_venta;
-DROP TABLE IF EXISTS Ventas;
-DROP TABLE IF EXISTS Detalles_compra;
-DROP TABLE IF EXISTS Compras;
-DROP TABLE IF EXISTS Inventarios;
-DROP TABLE IF EXISTS Platos;
-DROP TABLE IF EXISTS Meseros;
-DROP TABLE IF EXISTS Cocineros;
-DROP TABLE IF EXISTS Recetas;
-DROP TABLE IF EXISTS Ingredientes;
-DROP TABLE IF EXISTS Causas_desperdicio;
-DROP TABLE IF EXISTS Empleados;
-DROP TABLE IF EXISTS Proveedores;
 
 -- Tablas
 CREATE TABLE Proveedores (
@@ -166,7 +149,7 @@ ADD CONSTRAINT ck_proveedor_telefono CHECK (telefono BETWEEN 1000000000 AND 9999
 
 -- Correo con texto antes de la @, y un punto con texto después (sin espacios)
 ALTER TABLE Proveedores
-ADD CONSTRAINT ck_proveedor_correo CHECK (correo ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$');
+ADD CONSTRAINT ck_proveedor_correo CHECK (correo LIKE '%_@_%._%');
 
 ALTER TABLE Empleados
 ADD CONSTRAINT ck_empleado_salario CHECK (salario > 0);
@@ -225,28 +208,6 @@ ADD CONSTRAINT ck_detalle_total CHECK (Total > 0);
 ALTER TABLE Platos
 ADD CONSTRAINT ck_plato_tiempo CHECK (tiempo_preparacion > 0);
 
--- Nombres obligatorios: no pueden estar vacíos ni ser solo espacios
-ALTER TABLE Proveedores
-ADD CONSTRAINT ck_proveedor_nombre CHECK (LENGTH(TRIM(nombre)) > 0);
-
-ALTER TABLE Empleados
-ADD CONSTRAINT ck_empleado_nombre CHECK (LENGTH(TRIM(nombre)) > 0);
-
-ALTER TABLE Ingredientes
-ADD CONSTRAINT ck_ingrediente_nombre CHECK (LENGTH(TRIM(nombre)) > 0);
-
-ALTER TABLE Platos
-ADD CONSTRAINT ck_plato_nombre CHECK (LENGTH(TRIM(nombre)) > 0);
-
-ALTER TABLE Recetas
-ADD CONSTRAINT ck_receta_nombre CHECK (LENGTH(TRIM(Nombre)) > 0);
-
-ALTER TABLE Menus
-ADD CONSTRAINT ck_menu_nombre CHECK (LENGTH(TRIM(nombre)) > 0);
-
-ALTER TABLE Causas_desperdicio
-ADD CONSTRAINT ck_causa_descripcion CHECK (LENGTH(TRIM(descripcion)) > 0);
-
 -- Primarias
 ALTER TABLE Proveedores
 ADD CONSTRAINT pk_proveedores PRIMARY KEY (id_proveedor);
@@ -301,6 +262,32 @@ ADD CONSTRAINT pk_menus PRIMARY KEY (id_menu);
 
 ALTER TABLE Menus_platos
 ADD CONSTRAINT pk_menus_platos PRIMARY KEY (id_menu, id_plato);
+
+-- Unicas
+ALTER TABLE Proveedores
+ADD CONSTRAINT uq_proveedor_correo UNIQUE (correo);
+
+ALTER TABLE Platos
+ADD CONSTRAINT uq_plato_nombre UNIQUE (nombre);
+
+ALTER TABLE Recetas
+ADD CONSTRAINT uq_receta_nombre UNIQUE (Nombre);
+
+ALTER TABLE Ingredientes
+ADD CONSTRAINT uq_ingrediente_nombre UNIQUE (nombre);
+
+ALTER TABLE Menus
+ADD CONSTRAINT uq_menu_nombre UNIQUE (nombre);
+
+ALTER TABLE Proveedores
+ADD CONSTRAINT uq_proveedor_telefono UNIQUE (telefono);
+
+-- Una sola línea por ingrediente en cada compra, y por plato en cada venta
+ALTER TABLE Detalles_compra
+ADD CONSTRAINT uq_detalle_compra_ingrediente UNIQUE (id_compra, id_ingrediente);
+
+ALTER TABLE Detalles_venta
+ADD CONSTRAINT uq_detalle_venta_plato UNIQUE (id_venta, id_plato);
 
 -- Foraneas
 ALTER TABLE Cocineros
@@ -396,34 +383,325 @@ ALTER TABLE Menus_platos
 ADD CONSTRAINT fk_menu_plato_plato
 FOREIGN KEY (id_plato) REFERENCES Platos(id_plato);
 
--- Unicas
-ALTER TABLE Proveedores
-ADD CONSTRAINT uq_proveedor_correo UNIQUE (correo);
+-- XTablas
+DROP TABLE IF EXISTS Menus_platos;
+DROP TABLE IF EXISTS Menus;
+DROP TABLE IF EXISTS Recetas_ingredientes;
+DROP TABLE IF EXISTS Movimientos_inventario;
+DROP TABLE IF EXISTS Desperdicios;
+DROP TABLE IF EXISTS Detalles_venta;
+DROP TABLE IF EXISTS Ventas;
+DROP TABLE IF EXISTS Detalles_compra;
+DROP TABLE IF EXISTS Compras;
+DROP TABLE IF EXISTS Inventarios;
+DROP TABLE IF EXISTS Platos;
+DROP TABLE IF EXISTS Meseros;
+DROP TABLE IF EXISTS Cocineros;
+DROP TABLE IF EXISTS Recetas;
+DROP TABLE IF EXISTS Ingredientes;
+DROP TABLE IF EXISTS Causas_desperdicio;
+DROP TABLE IF EXISTS Empleados;
+DROP TABLE IF EXISTS Proveedores;
 
-ALTER TABLE Platos
-ADD CONSTRAINT uq_plato_nombre UNIQUE (nombre);
+-- ConsultasOperativas
 
-ALTER TABLE Recetas
-ADD CONSTRAINT uq_receta_nombre UNIQUE (Nombre);
+-- O1. Como administrador quiero consultar las compras realizadas en un mes
+-- para poder hacer un balance de la comida desperdiciada.
+-- Cambie las fechas del BETWEEN para consultar otro mes.
+SELECT c.id_compra, c.fecha_compra, p.nombre AS proveedor, SUM(dc.Total) AS total_compra
+FROM Compras c
+JOIN Proveedores p ON p.id_proveedor = c.id_proveedor
+JOIN Detalles_compra dc ON dc.id_compra = c.id_compra
+WHERE c.fecha_compra BETWEEN '2026-09-01' AND '2026-09-30'
+GROUP BY c.id_compra, c.fecha_compra, p.nombre
+ORDER BY c.fecha_compra;
 
-ALTER TABLE Ingredientes
-ADD CONSTRAINT uq_ingrediente_nombre UNIQUE (nombre);
+-- O2. Como administrador quiero consultar los proveedores
+-- para saber quien es el proveedor que mas envia ingredientes.
+SELECT p.nombre AS proveedor, p.telefono, p.correo,
+       COUNT(DISTINCT c.id_compra) AS compras, SUM(dc.cantidad) AS cantidad_enviada
+FROM Proveedores p
+JOIN Compras c ON c.id_proveedor = p.id_proveedor
+JOIN Detalles_compra dc ON dc.id_compra = c.id_compra
+GROUP BY p.nombre, p.telefono, p.correo
+ORDER BY cantidad_enviada DESC;
 
-ALTER TABLE Menus
-ADD CONSTRAINT uq_menu_nombre UNIQUE (nombre);
+-- O3. Como administrador quiero consultar el inventario
+-- para saber que ingredientes tengo disponibles y que tengo que pedir.
+-- Un sobrante negativo significa que esta por debajo del stock minimo y hay que pedirlo.
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.unidad_medida, i.stock_minimo,
+       inv.cantidad_disponible - i.stock_minimo AS sobrante
+FROM Inventarios inv
+JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
+ORDER BY sobrante, i.nombre;
 
-ALTER TABLE Causas_desperdicio
-ADD CONSTRAINT uq_causa_descripcion UNIQUE (descripcion);
+-- O4. Como administrador quiero consultar cada movimiento del inventario
+-- para saber cual ingrediente tiene mas rotacion y cual se queda mucho tiempo sin salir.
+SELECT i.nombre AS ingrediente, m.tipo_movimiento, COUNT(*) AS movimientos,
+       SUM(m.cantidad) AS cantidad_total, MAX(m.fecha) AS ultimo_movimiento,
+       CURRENT_DATE - MAX(m.fecha) AS dias_sin_movimiento
+FROM Movimientos_inventario m
+JOIN Ingredientes i ON i.id_ingrediente = m.id_ingrediente
+GROUP BY i.nombre, m.tipo_movimiento
+ORDER BY m.tipo_movimiento, cantidad_total DESC;
 
-ALTER TABLE Proveedores
-ADD CONSTRAINT uq_proveedor_telefono UNIQUE (telefono);
+-- O5. Como administrador quiero consultar las ventas realizadas de cada mes
+-- para tener un balance entre el desperdicio de comida y las ganancias de las ventas.
+SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
+       COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
+FROM Ventas v
+GROUP BY EXTRACT(YEAR FROM v.fecha_venta), EXTRACT(MONTH FROM v.fecha_venta)
+ORDER BY anio, mes;
 
--- Una sola línea por ingrediente en cada compra, y por plato en cada venta
-ALTER TABLE Detalles_compra
-ADD CONSTRAINT uq_detalle_compra_ingrediente UNIQUE (id_compra, id_ingrediente);
+-- O6. Como administrador quiero consultar los platos mas vendidos de cada mes
+-- para comprar los ingredientes mas usados en esos platos y reducir los desperdicios.
+SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
+       p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
+FROM Detalles_venta dv
+JOIN Ventas v ON v.id_venta = dv.id_venta
+JOIN Platos p ON p.id_plato = dv.id_plato
+GROUP BY EXTRACT(YEAR FROM v.fecha_venta), EXTRACT(MONTH FROM v.fecha_venta), p.nombre
+ORDER BY anio, mes, unidades_vendidas DESC;
 
-ALTER TABLE Detalles_venta
-ADD CONSTRAINT uq_detalle_venta_plato UNIQUE (id_venta, id_plato);
+-- O7. Como administrador quiero consultar la lista de compras con los ingredientes que estan por debajo del stock minimo
+-- para saber que tengo que pedir a los proveedores antes de que se acaben.
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.stock_minimo,
+       i.stock_minimo - inv.cantidad_disponible AS faltante,
+       (i.stock_minimo - inv.cantidad_disponible) * i.costo_unitario AS costo_estimado
+FROM Inventarios inv
+JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
+WHERE inv.cantidad_disponible < i.stock_minimo
+ORDER BY faltante DESC;
+
+-- O8. Como administrador quiero consultar los platos del menu que estan en riesgo por falta de algun ingrediente
+-- para avisar a tiempo, reponer el ingrediente y no dejar de ofrecer esos platos.
+-- Un plato esta en riesgo si algun ingrediente de su receta esta por debajo del stock minimo.
+SELECT DISTINCT m.nombre AS menu, p.nombre AS plato, i.nombre AS ingrediente_en_riesgo,
+       inv.cantidad_disponible, i.stock_minimo
+FROM Menus m
+JOIN Menus_platos mp ON mp.id_menu = m.id_menu
+JOIN Platos p ON p.id_plato = mp.id_plato
+JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
+JOIN Ingredientes i ON i.id_ingrediente = ri.id_ingrediente
+JOIN Inventarios inv ON inv.id_ingrediente = i.id_ingrediente
+WHERE m.activo = TRUE AND inv.cantidad_disponible < i.stock_minimo
+ORDER BY m.nombre, p.nombre;
+
+-- O9. Como administrador quiero consultar el detalle de una venta: platos, cantidades, precio y mesero
+-- para revisar lo que se vendio en cada cuenta y compararlo con los ingredientes que salieron.
+-- Cambie el 1 para consultar otra venta.
+SELECT v.id_venta, v.fecha_venta, e.nombre AS mesero, p.nombre AS plato, dv.cantidad,
+       dv.precio_unitario, dv.cantidad * dv.precio_unitario AS subtotal
+FROM Ventas v
+JOIN Empleados e ON e.id_empleado = v.id_mesero
+JOIN Detalles_venta dv ON dv.id_venta = v.id_venta
+JOIN Platos p ON p.id_plato = dv.id_plato
+WHERE v.id_venta = 1
+ORDER BY p.nombre;
+
+-- O10. Como administrador quiero consultar los desperdicios de cada mes
+-- para observar en que meses hay mas desperdicios y como reducirlos al minimo.
+SELECT EXTRACT(YEAR FROM d.fecha) AS anio, EXTRACT(MONTH FROM d.fecha) AS mes,
+       COUNT(*) AS registros, SUM(d.cantidad) AS cantidad_desperdiciada
+FROM Desperdicios d
+GROUP BY EXTRACT(YEAR FROM d.fecha), EXTRACT(MONTH FROM d.fecha)
+ORDER BY anio, mes;
+
+-- O11. Como empleado quiero consultar los ingredientes del dia
+-- para tener claro que platos podre preparar o cuales ofrecer al cliente.
+-- Son los ingredientes con existencias y que no estan vencidos.
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.unidad_medida, i.Fecha_vencimiento
+FROM Ingredientes i
+JOIN Inventarios inv ON inv.id_ingrediente = i.id_ingrediente
+WHERE inv.cantidad_disponible > 0
+  AND (i.Fecha_vencimiento IS NULL OR i.Fecha_vencimiento >= CURRENT_DATE)
+ORDER BY i.nombre;
+
+-- O12. Como empleado quiero consultar el inventario
+-- para saber que tengo que pedir a los proveedores y seguir vendiendo los platos que me pidan.
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.unidad_medida, i.stock_minimo
+FROM Inventarios inv
+JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
+WHERE inv.cantidad_disponible <= i.stock_minimo
+ORDER BY inv.cantidad_disponible;
+
+-- O13. Como empleado quiero consultar los platos devueltos
+-- para entender sus devoluciones y reducir los desperdicios por devolucion de platos.
+-- Es el desperdicio cuya causa es la devolucion del cliente.
+SELECT d.fecha, i.nombre AS ingrediente, d.cantidad, e.nombre AS registrado_por
+FROM Desperdicios d
+JOIN Causas_desperdicio c ON c.id_causa = d.id_causa
+JOIN Ingredientes i ON i.id_ingrediente = d.id_ingrediente
+JOIN Empleados e ON e.id_empleado = d.id_empleado
+WHERE c.descripcion = 'Devolución del cliente'
+ORDER BY d.fecha;
+
+-- O14. Como empleado quiero consultar los desperdicios del dia
+-- para observar en que platos hay mayor desperdicio y reducirlo.
+-- Cambie la fecha para consultar otro dia (CURRENT_DATE para hoy).
+SELECT d.fecha, i.nombre AS ingrediente, c.descripcion AS causa, d.cantidad
+FROM Desperdicios d
+JOIN Ingredientes i ON i.id_ingrediente = d.id_ingrediente
+JOIN Causas_desperdicio c ON c.id_causa = d.id_causa
+WHERE d.fecha = '2026-10-03'
+ORDER BY d.cantidad DESC;
+
+-- O15. Como cliente quiero consultar los platos de comida
+-- para ordenar mi comida de mi mayor agrado.
+SELECT m.nombre AS menu, p.nombre AS plato, mp.precio, p.tiempo_preparacion
+FROM Menus m
+JOIN Menus_platos mp ON mp.id_menu = m.id_menu
+JOIN Platos p ON p.id_plato = mp.id_plato
+WHERE m.activo = TRUE AND mp.disponible = TRUE
+ORDER BY p.nombre;
+
+-- O16. Como cliente quiero consultar las recetas
+-- para decidir que comer.
+SELECT r.Nombre AS receta, r.Descripcion, r.tiempo_preparacion,
+       i.nombre AS ingrediente, ri.cantidad, i.unidad_medida
+FROM Recetas r
+JOIN Recetas_ingredientes ri ON ri.id_receta = r.id_receta
+JOIN Ingredientes i ON i.id_ingrediente = ri.id_ingrediente
+ORDER BY r.Nombre, i.nombre;
+
+-- O17. Como cliente quiero consultar la disponibilidad de platos e ingredientes
+-- para ordenar mi comida con los ingredientes de mayor disponibilidad.
+-- margen_minimo es lo que sobra del ingrediente mas justo para una porcion:
+-- si es negativo el plato no esta disponible porque falta ese ingrediente.
+SELECT p.nombre AS plato, COUNT(*) AS ingredientes,
+       MIN(inv.cantidad_disponible - ri.cantidad) AS margen_minimo
+FROM Platos p
+JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
+JOIN Inventarios inv ON inv.id_ingrediente = ri.id_ingrediente
+GROUP BY p.nombre
+ORDER BY margen_minimo, p.nombre;
+
+-- ConsultasGerenciales
+
+-- G1. Como administrador quiero consultar el desperdicio de comida por turno
+-- para identificar en que turnos se desperdicia mas y reforzar el control ahi.
+-- El turno solo existe en Meseros: cuenta los desperdicios registrados por meseros.
+SELECT m.turno, COUNT(*) AS registros, SUM(d.cantidad) AS cantidad_desperdiciada
+FROM Desperdicios d
+JOIN Meseros m ON m.id_empleado = d.id_empleado
+GROUP BY m.turno
+ORDER BY cantidad_desperdiciada DESC;
+
+-- G2. Como administrador quiero consultar la lista de ingredientes mas desperdiciados
+-- para decidir que ingredientes comprar en menor cantidad o cuidar mejor.
+SELECT i.nombre AS ingrediente, i.unidad_medida, SUM(d.cantidad) AS cantidad_desperdiciada
+FROM Desperdicios d
+JOIN Ingredientes i ON i.id_ingrediente = d.id_ingrediente
+GROUP BY i.nombre, i.unidad_medida
+ORDER BY cantidad_desperdiciada DESC;
+
+-- G3. Como administrador quiero consultar el desperdicio de ingredientes segun el proveedor que los entrego
+-- para evaluar que proveedores entregan ingredientes que se desperdician mas.
+-- Si un ingrediente lo han entregado varios proveedores, se cuenta para cada uno.
+SELECT p.nombre AS proveedor, SUM(d.cantidad) AS cantidad_desperdiciada
+FROM Desperdicios d
+JOIN Detalles_compra dc ON dc.id_ingrediente = d.id_ingrediente
+JOIN Compras c ON c.id_compra = dc.id_compra
+JOIN Proveedores p ON p.id_proveedor = c.id_proveedor
+GROUP BY p.nombre
+ORDER BY cantidad_desperdiciada DESC;
+
+-- G4. Como gerente quiero consultar el desperdicio de comida en un rango de fechas
+-- para comparar periodos y ver si las medidas para reducir el desperdicio funcionan.
+-- Cambie las fechas del BETWEEN para comparar otro periodo.
+SELECT d.fecha AS dia, SUM(d.cantidad) AS cantidad_desperdiciada
+FROM Desperdicios d
+WHERE d.fecha BETWEEN '2026-09-23' AND '2026-10-08'
+GROUP BY d.fecha
+ORDER BY d.fecha;
+
+-- G5. Como gerente quiero consultar el desperdicio por causa y por area de trabajo
+-- para saber en que area y por que causa se desperdicia mas y asignar responsables.
+-- El area es Cocina (el empleado es cocinero) o Salon (el empleado es mesero).
+SELECT 'Cocina' AS area, c.descripcion AS causa, SUM(d.cantidad) AS cantidad_desperdiciada
+FROM Desperdicios d
+JOIN Cocineros co ON co.id_empleado = d.id_empleado
+JOIN Causas_desperdicio c ON c.id_causa = d.id_causa
+GROUP BY c.descripcion
+UNION ALL
+SELECT 'Salon', c.descripcion, SUM(d.cantidad)
+FROM Desperdicios d
+JOIN Meseros me ON me.id_empleado = d.id_empleado
+JOIN Causas_desperdicio c ON c.id_causa = d.id_causa
+GROUP BY c.descripcion
+ORDER BY 1, 3 DESC;
+
+-- G6. Como gerente quiero consultar el gasto mensual de cada ingrediente, sumando ventas y desperdicio
+-- para saber cuanto consume el restaurante de cada ingrediente y planear las compras.
+-- Ventas: cantidad por porcion de la receta x platos vendidos. Desperdicio: cantidad desperdiciada.
+SELECT g.anio, g.mes, i.nombre AS ingrediente, i.unidad_medida, SUM(g.cantidad) AS gasto_total
+FROM (
+    SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
+           ri.id_ingrediente, ri.cantidad * dv.cantidad AS cantidad
+    FROM Detalles_venta dv
+    JOIN Ventas v ON v.id_venta = dv.id_venta
+    JOIN Platos p ON p.id_plato = dv.id_plato
+    JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
+    UNION ALL
+    SELECT EXTRACT(YEAR FROM d.fecha), EXTRACT(MONTH FROM d.fecha), d.id_ingrediente, d.cantidad
+    FROM Desperdicios d
+) g
+JOIN Ingredientes i ON i.id_ingrediente = g.id_ingrediente
+GROUP BY g.anio, g.mes, i.nombre, i.unidad_medida
+ORDER BY g.anio, g.mes, gasto_total DESC;
+
+-- G7. Como gerente quiero consultar cuantos dias alcanza cada ingrediente segun su gasto promedio de los ultimos 3 meses
+-- para pedir a tiempo y evitar quedarme sin ingredientes.
+-- Dias que alcanza = cantidad disponible / (gasto de los ultimos 3 meses / 90 dias).
+-- Los 3 meses terminan en la ultima venta registrada; para contar desde hoy cambie
+-- (SELECT MAX(fecha_venta) FROM Ventas) por CURRENT_DATE.
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible,
+       ROUND(SUM(g.cantidad) / 90, 2) AS gasto_promedio_diario,
+       ROUND(inv.cantidad_disponible / (SUM(g.cantidad) / 90), 1) AS dias_que_alcanza
+FROM (
+    SELECT v.fecha_venta AS fecha, ri.id_ingrediente, ri.cantidad * dv.cantidad AS cantidad
+    FROM Detalles_venta dv
+    JOIN Ventas v ON v.id_venta = dv.id_venta
+    JOIN Platos p ON p.id_plato = dv.id_plato
+    JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
+    UNION ALL
+    SELECT d.fecha, d.id_ingrediente, d.cantidad
+    FROM Desperdicios d
+) g
+JOIN Ingredientes i ON i.id_ingrediente = g.id_ingrediente
+JOIN Inventarios inv ON inv.id_ingrediente = i.id_ingrediente
+WHERE g.fecha >= (SELECT MAX(fecha_venta) FROM Ventas) - INTERVAL '3 months'
+GROUP BY i.nombre, inv.cantidad_disponible
+ORDER BY dias_que_alcanza;
+
+-- G8. Como gerente quiero consultar el total vendido por cada mesero en un periodo
+-- para evaluar el desempeno del personal de salon y su aporte a las ventas.
+-- Cambie las fechas del BETWEEN para consultar otro periodo.
+SELECT e.nombre AS mesero, me.turno, COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
+FROM Ventas v
+JOIN Meseros me ON me.id_empleado = v.id_mesero
+JOIN Empleados e ON e.id_empleado = me.id_empleado
+WHERE v.fecha_venta BETWEEN '2026-09-01' AND '2026-10-31'
+GROUP BY e.nombre, me.turno
+ORDER BY total_vendido DESC;
+
+-- G9. Como gerente quiero consultar las perdidas economicas por el desperdicio de comida
+-- para saber cuanto dinero se pierde y tomar decisiones para reducirlo.
+-- Perdida = cantidad desperdiciada * costo unitario del ingrediente.
+SELECT i.nombre AS ingrediente, SUM(d.cantidad) AS cantidad_desperdiciada,
+       i.costo_unitario, SUM(d.cantidad * i.costo_unitario) AS perdida_economica
+FROM Desperdicios d
+JOIN Ingredientes i ON i.id_ingrediente = d.id_ingrediente
+GROUP BY i.nombre, i.costo_unitario
+ORDER BY perdida_economica DESC;
+
+-- G10. Como administrador quiero consultar el desperdicio de comida por cada causa
+-- para saber que causas generan mas desperdicio y poder corregirlas.
+SELECT c.descripcion AS causa, COUNT(*) AS registros, SUM(d.cantidad) AS cantidad_desperdiciada
+FROM Desperdicios d
+JOIN Causas_desperdicio c ON c.id_causa = d.id_causa
+GROUP BY c.descripcion
+ORDER BY cantidad_desperdiciada DESC;
 
 -- PoblarOK
 INSERT INTO Proveedores (nombre, telefono, correo) VALUES
@@ -662,6 +940,15 @@ SELECT
     1 + i % 15
 FROM generate_series(1, 13) AS i;
 
+-- Desperdicios registrados por meseros (uno por turno y varios en la noche),
+-- para que las consultas gerenciales por turno y por area tengan datos de Salon
+INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa) VALUES
+('2026-09-25', 0.8, 1, 2,  4),
+('2026-09-26', 1.5, 3, 4,  2),
+('2026-10-02', 1.0, 5, 20, 6),
+('2026-10-04', 0.5, 6, 23, 7),
+('2026-10-05', 1.2, 8, 26, 1);
+
 -- Menús: lo que ofrece el restaurante
 INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo) VALUES
 ('Carta principal', '2026-09-01', NULL,         TRUE),
@@ -679,6 +966,60 @@ INSERT INTO Menus_platos (id_menu, id_plato, precio, disponible) VALUES
 (2, 11, 15000.00, FALSE),
 (3, 8, 22000.00, TRUE),
 (3, 7, 28000.00, TRUE);
+
+-- PoblarOK volumen: ventas, compras y desperdicios de julio a octubre de 2026
+-- 150 ventas nuevas (id 16 a 165), cada una atendida por un mesero distinto en rotación
+INSERT INTO Ventas (fecha_venta, total, id_mesero)
+SELECT
+    DATE '2026-07-01' + (i * 7) % 96,
+    0,
+    (SELECT id_empleado FROM Meseros ORDER BY id_empleado OFFSET i % (SELECT COUNT(*) FROM Meseros) LIMIT 1)
+FROM generate_series(1, 150) AS i;
+
+-- 3 platos distintos por venta (450 detalles)
+INSERT INTO Detalles_venta (cantidad, precio_unitario, id_venta, id_plato)
+SELECT
+    1 + (v.id_venta + k) % 3,
+    15000.00 + ((v.id_venta + k) % 5) * 3000,
+    v.id_venta,
+    1 + (v.id_venta + k * 4) % 15
+FROM Ventas v, generate_series(0, 2) AS k
+WHERE v.id_venta > 15;
+
+-- El total de cada venta nueva es la suma de sus detalles
+UPDATE Ventas
+SET total = (SELECT SUM(d.cantidad * d.precio_unitario)
+             FROM Detalles_venta d
+             WHERE d.id_venta = Ventas.id_venta)
+WHERE id_venta > 15;
+
+-- 60 compras nuevas (id 16 a 75), recibidas entre 1 y 5 días después
+INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
+SELECT
+    DATE '2026-07-01' + (i * 5) % 96,
+    DATE '2026-07-01' + (i * 5) % 96 + 1 + i % 5,
+    (SELECT id_proveedor FROM Proveedores ORDER BY id_proveedor OFFSET i % (SELECT COUNT(*) FROM Proveedores) LIMIT 1)
+FROM generate_series(1, 60) AS i;
+
+-- 3 ingredientes distintos por compra (180 detalles)
+INSERT INTO Detalles_compra (cantidad, Total, id_compra, id_ingrediente)
+SELECT
+    10 + (c.id_compra + k) % 11,
+    (10 + (c.id_compra + k) % 11) * 7000.00,
+    c.id_compra,
+    1 + (c.id_compra + k * 4) % 15
+FROM Compras c, generate_series(0, 2) AS k
+WHERE c.id_compra > 15;
+
+-- 100 desperdicios nuevos
+INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
+SELECT
+    DATE '2026-07-01' + (i * 3) % 96,
+    0.5 + (i % 6) * 0.5,
+    1 + i % 15,
+    1 + i % 30,
+    1 + i % 15
+FROM generate_series(1, 100) AS i;
 
 -- PoblarNoOK
 -- INSERT INTO Proveedores (nombre, telefono, correo)
@@ -961,40 +1302,7 @@ INSERT INTO Menus_platos (id_menu, id_plato, precio, disponible) VALUES
 -- INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
 -- VALUES ('2026-10-04', 0, 1, 1, 1);
 
--- PoblarNoOK: nombres vacíos o en blanco
--- [ck_proveedor_nombre]
--- INSERT INTO Proveedores (nombre, telefono, correo)
--- VALUES ('', 3001119999, 'vacio@proveedor.com');
-
--- [ck_empleado_nombre]
--- INSERT INTO Empleados (nombre, salario)
--- VALUES ('   ', 1500000.00);
-
--- [ck_ingrediente_nombre]
--- INSERT INTO Ingredientes (nombre, Fecha_vencimiento, unidad_medida, stock_minimo, costo_unitario)
--- VALUES ('', '2027-01-01', 'kg', 1, 100.00);
-
--- [ck_plato_nombre]
--- INSERT INTO Platos (nombre, tiempo_preparacion, id_receta)
--- VALUES ('', 30, 1);
-
--- [ck_receta_nombre]
--- INSERT INTO Recetas (Nombre, tiempo_preparacion, Descripcion)
--- VALUES ('', 30, 'Receta sin nombre');
-
--- [ck_menu_nombre]
--- INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
--- VALUES ('', '2027-01-01', NULL, FALSE);
-
--- [ck_causa_descripcion]
--- INSERT INTO Causas_desperdicio (descripcion)
--- VALUES ('');
-
 -- PoblarNoOK: repetidos que no tienen sentido
--- [uq_causa_descripcion]
--- INSERT INTO Causas_desperdicio (descripcion)
--- VALUES ('Producto vencido');
-
 -- [uq_proveedor_telefono]
 -- INSERT INTO Proveedores (nombre, telefono, correo)
 -- VALUES ('Proveedor Gemelo', 3001234567, 'gemelo@proveedor.com');
@@ -1006,6 +1314,26 @@ INSERT INTO Menus_platos (id_menu, id_plato, precio, disponible) VALUES
 -- [uq_detalle_venta_plato] el plato 1 ya está en la venta 1
 -- INSERT INTO Detalles_venta (cantidad, precio_unitario, id_venta, id_plato)
 -- VALUES (1, 18000.00, 1, 1);
+
+-- XPoblar
+-- DROP TABLE IF EXISTS Menus_platos CASCADE;
+-- DROP TABLE IF EXISTS Menus CASCADE;
+-- DROP TABLE IF EXISTS Recetas_ingredientes CASCADE;
+-- DROP TABLE IF EXISTS Desperdicios CASCADE;
+-- DROP TABLE IF EXISTS Detalles_venta CASCADE;
+-- DROP TABLE IF EXISTS Ventas CASCADE;
+-- DROP TABLE IF EXISTS Platos CASCADE;
+-- DROP TABLE IF EXISTS Detalles_compra CASCADE;
+-- DROP TABLE IF EXISTS Compras CASCADE;
+-- DROP TABLE IF EXISTS Movimientos_inventario CASCADE;
+-- DROP TABLE IF EXISTS Inventarios CASCADE;
+-- DROP TABLE IF EXISTS Recetas CASCADE;
+-- DROP TABLE IF EXISTS Cocineros CASCADE;
+-- DROP TABLE IF EXISTS Meseros CASCADE;
+-- DROP TABLE IF EXISTS Empleados CASCADE;
+-- DROP TABLE IF EXISTS Causas_desperdicio CASCADE;
+-- DROP TABLE IF EXISTS Ingredientes CASCADE;
+-- DROP TABLE IF EXISTS Proveedores CASCADE;
 
 -- Tuplas
 ALTER TABLE Proveedores
@@ -1032,119 +1360,6 @@ ALTER TABLE Movimientos_inventario
 ADD CONSTRAINT ck_movimiento_tipo_origen
 CHECK ((tipo_movimiento = 'Entrada' AND origen = 'Compra')
     OR (tipo_movimiento = 'Salida' AND origen IN ('Venta', 'Desperdicio')));
-
--- TuplasOK
-INSERT INTO Proveedores (nombre, telefono, correo)
-VALUES ('Lácteos del Valle', NULL, 'ventas@lacteosvalle.com');
-
-INSERT INTO Proveedores (nombre, telefono, correo)
-VALUES ('Frutas El Campo', 3112223344, NULL);
-
-INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
-VALUES ('2026-10-01', '2026-10-03', 1);
-
-INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
-VALUES ('2026-10-05', '2026-10-05', 2);
-
-INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
-VALUES ('Menú de temporada', '2027-01-01', NULL, FALSE);
-
-INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
-VALUES ('Menú de un día', '2027-02-14', '2027-02-14', FALSE);
-
-INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra)
-VALUES ('2026-10-06', 'Entrada', 5, 1, 'Compra', 1);
-
--- TuplasNoOK
--- INSERT INTO Proveedores (nombre, telefono, correo)
--- VALUES ('Proveedor Sin Contacto', NULL, NULL);
-
--- INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
--- VALUES ('2026-10-10', '2026-10-01', 1);
-
--- INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
--- VALUES ('Menú al revés', '2027-03-10', '2027-03-01', TRUE);
-
--- Movimiento de venta pero apuntando a un detalle de compra
--- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra)
--- VALUES ('2026-10-06', 'Salida', 1, 1, 'Venta', 1);
-
--- Movimiento que apunta a la vez a un detalle de compra y a un desperdicio
--- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra, id_desperdicio)
--- VALUES ('2026-10-06', 'Entrada', 1, 1, 'Compra', 1, 1);
-
--- [ck_movimiento_tipo_origen] una entrada que viene de una venta
--- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
--- VALUES ('2026-10-06', 'Entrada', 1, 1, 'Venta');
-
--- [ck_movimiento_tipo_origen] una salida que viene de una compra
--- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
--- VALUES ('2026-10-06', 'Salida', 1, 1, 'Compra');
-
--- [ck_movimiento_tipo_origen] una entrada que viene de un desperdicio
--- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
--- VALUES ('2026-10-06', 'Entrada', 1, 1, 'Desperdicio');
-
--- XPoblar
--- DROP TABLE IF EXISTS Menus_platos CASCADE;
--- DROP TABLE IF EXISTS Menus CASCADE;
--- DROP TABLE IF EXISTS Recetas_ingredientes CASCADE;
--- DROP TABLE IF EXISTS Desperdicios CASCADE;
--- DROP TABLE IF EXISTS Detalles_venta CASCADE;
--- DROP TABLE IF EXISTS Ventas CASCADE;
--- DROP TABLE IF EXISTS Platos CASCADE;
--- DROP TABLE IF EXISTS Detalles_compra CASCADE;
--- DROP TABLE IF EXISTS Compras CASCADE;
--- DROP TABLE IF EXISTS Movimientos_inventario CASCADE;
--- DROP TABLE IF EXISTS Inventarios CASCADE;
--- DROP TABLE IF EXISTS Recetas CASCADE;
--- DROP TABLE IF EXISTS Cocineros CASCADE;
--- DROP TABLE IF EXISTS Meseros CASCADE;
--- DROP TABLE IF EXISTS Empleados CASCADE;
--- DROP TABLE IF EXISTS Causas_desperdicio CASCADE;
--- DROP TABLE IF EXISTS Ingredientes CASCADE;
--- DROP TABLE IF EXISTS Proveedores CASCADE;
-
------------------
---AccionesOK--
---1--
-INSERT INTO Empleados(id_empleado, nombre, salario)
-VALUES(99, 'jhojan', 2000);
-
-INSERT INTO Cocineros(id_empleado, Especialidad)
-VALUES(99, 'reposteria');
-
-SELECT * FROM Cocineros WHERE id_empleado=99;
-
-DELETE FROM Empleados WHERE id_empleado=99;
-
-SELECT * FROM Cocineros WHERE id_empleado=99;
-
---2--
-INSERT INTO Empleados(id_empleado, nombre, salario)
-VALUES(109, 'JUAN', 4000);
-
-INSERT INTO Meseros(id_empleado, turno)
-VALUES(109, 'Noche');
-
-SELECT * FROM Meseros WHERE id_empleado=109;
-
-DELETE FROM Empleados WHERE id_empleado=109;
-
-SELECT * FROM Meseros WHERE id_empleado=109;
-
---3--
-INSERT INTO Ingredientes(id_ingrediente, nombre, Fecha_vencimiento)
-VALUES(00099, 'Azúcar', '2030-07-17');
-
-INSERT INTO Inventarios(id_ingrediente, cantidad_disponible)
-VALUES(00099, 150);
-
-SELECT * FROM Inventarios WHERE id_ingrediente=00099;
-
-DELETE FROM Ingredientes WHERE id_ingrediente=00099;
-
-SELECT * FROM Inventarios WHERE id_ingrediente=00099;
 
 -- Disparadores
 ---Disparador 1: un cocinero no puede ser mesero
@@ -1309,6 +1524,117 @@ CREATE TRIGGER t_detalle_venta_total
 AFTER INSERT ON Detalles_venta
 FOR EACH ROW EXECUTE FUNCTION f_detalle_venta_total();
 
+-- XDisparadores
+-- DROP TRIGGER IF EXISTS t_cocinero_no_mesero ON Cocineros;
+-- DROP TRIGGER IF EXISTS t_recibir_compra ON Compras;
+-- DROP TRIGGER IF EXISTS t_salida_con_inventario ON Movimientos_inventario;
+-- DROP TRIGGER IF EXISTS t_mesero_no_cocinero ON Meseros;
+-- DROP TRIGGER IF EXISTS t_descontar_salida ON Movimientos_inventario;
+-- DROP TRIGGER IF EXISTS t_venta_descontar_ingredientes ON Detalles_venta;
+-- DROP TRIGGER IF EXISTS t_detalle_venta_total ON Detalles_venta;
+-- DROP TRIGGER IF EXISTS t_desperdicio_descontar ON Desperdicios;
+-- DROP FUNCTION IF EXISTS f_cocinero_no_mesero();
+-- DROP FUNCTION IF EXISTS f_recibir_compra();
+-- DROP FUNCTION IF EXISTS f_salida_con_inventario();
+-- DROP FUNCTION IF EXISTS f_mesero_no_cocinero();
+-- DROP FUNCTION IF EXISTS f_descontar_salida();
+-- DROP FUNCTION IF EXISTS f_venta_descontar_ingredientes();
+-- DROP FUNCTION IF EXISTS f_desperdicio_descontar();
+-- DROP FUNCTION IF EXISTS f_detalle_venta_total();
+
+-- TuplasOK
+INSERT INTO Proveedores (nombre, telefono, correo)
+VALUES ('Lácteos del Valle', NULL, 'ventas@lacteosvalle.com');
+
+INSERT INTO Proveedores (nombre, telefono, correo)
+VALUES ('Frutas El Campo', 3112223344, NULL);
+
+INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
+VALUES ('2026-10-01', '2026-10-03', 1);
+
+INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
+VALUES ('2026-10-05', '2026-10-05', 2);
+
+INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
+VALUES ('Menú de temporada', '2027-01-01', NULL, FALSE);
+
+INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
+VALUES ('Menú de un día', '2027-02-14', '2027-02-14', FALSE);
+
+INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra)
+VALUES ('2026-10-06', 'Entrada', 5, 1, 'Compra', 1);
+
+-- TuplasNoOK
+-- INSERT INTO Proveedores (nombre, telefono, correo)
+-- VALUES ('Proveedor Sin Contacto', NULL, NULL);
+
+-- INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
+-- VALUES ('2026-10-10', '2026-10-01', 1);
+
+-- INSERT INTO Menus (nombre, fecha_inicio, fecha_fin, activo)
+-- VALUES ('Menú al revés', '2027-03-10', '2027-03-01', TRUE);
+
+-- Movimiento de venta pero apuntando a un detalle de compra
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra)
+-- VALUES ('2026-10-06', 'Salida', 1, 1, 'Venta', 1);
+
+-- Movimiento que apunta a la vez a un detalle de compra y a un desperdicio
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra, id_desperdicio)
+-- VALUES ('2026-10-06', 'Entrada', 1, 1, 'Compra', 1, 1);
+
+-- [ck_movimiento_tipo_origen] una entrada que viene de una venta
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+-- VALUES ('2026-10-06', 'Entrada', 1, 1, 'Venta');
+
+-- [ck_movimiento_tipo_origen] una salida que viene de una compra
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+-- VALUES ('2026-10-06', 'Salida', 1, 1, 'Compra');
+
+-- [ck_movimiento_tipo_origen] una entrada que viene de un desperdicio
+-- INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen)
+-- VALUES ('2026-10-06', 'Entrada', 1, 1, 'Desperdicio');
+
+-----------------
+--AccionesOK--
+--1--
+INSERT INTO Empleados(id_empleado, nombre, salario)
+VALUES(99, 'jhojan', 2000);
+
+INSERT INTO Cocineros(id_empleado, Especialidad)
+VALUES(99, 'reposteria');
+
+SELECT * FROM Cocineros WHERE id_empleado=99;
+
+DELETE FROM Empleados WHERE id_empleado=99;
+
+SELECT * FROM Cocineros WHERE id_empleado=99;
+
+--2--
+INSERT INTO Empleados(id_empleado, nombre, salario)
+VALUES(109, 'JUAN', 4000);
+
+INSERT INTO Meseros(id_empleado, turno)
+VALUES(109, 'Noche');
+
+SELECT * FROM Meseros WHERE id_empleado=109;
+
+DELETE FROM Empleados WHERE id_empleado=109;
+
+SELECT * FROM Meseros WHERE id_empleado=109;
+
+--3--
+INSERT INTO Ingredientes(id_ingrediente, nombre, Fecha_vencimiento)
+VALUES(00099, 'Azúcar', '2030-07-17');
+
+INSERT INTO Inventarios(id_ingrediente, cantidad_disponible)
+VALUES(00099, 150);
+
+SELECT * FROM Inventarios WHERE id_ingrediente=00099;
+
+DELETE FROM Ingredientes WHERE id_ingrediente=00099;
+
+SELECT * FROM Inventarios WHERE id_ingrediente=00099;
+
 -- DisparadoresOK
 INSERT INTO Empleados (nombre, salario)
 VALUES ('Camila Rojas', 1700000.00);
@@ -1396,20 +1722,232 @@ SELECT * FROM Inventarios WHERE id_ingrediente = 2;
 
 -- UPDATE Meseros SET id_empleado = 3 WHERE id_empleado = 2;
 
--- XDisparadores
--- DROP TRIGGER IF EXISTS t_cocinero_no_mesero ON Cocineros;
--- DROP TRIGGER IF EXISTS t_recibir_compra ON Compras;
--- DROP TRIGGER IF EXISTS t_salida_con_inventario ON Movimientos_inventario;
--- DROP TRIGGER IF EXISTS t_mesero_no_cocinero ON Meseros;
--- DROP TRIGGER IF EXISTS t_descontar_salida ON Movimientos_inventario;
--- DROP TRIGGER IF EXISTS t_venta_descontar_ingredientes ON Detalles_venta;
--- DROP TRIGGER IF EXISTS t_detalle_venta_total ON Detalles_venta;
--- DROP TRIGGER IF EXISTS t_desperdicio_descontar ON Desperdicios;
--- DROP FUNCTION IF EXISTS f_cocinero_no_mesero();
--- DROP FUNCTION IF EXISTS f_recibir_compra();
--- DROP FUNCTION IF EXISTS f_salida_con_inventario();
--- DROP FUNCTION IF EXISTS f_mesero_no_cocinero();
--- DROP FUNCTION IF EXISTS f_descontar_salida();
--- DROP FUNCTION IF EXISTS f_venta_descontar_ingredientes();
--- DROP FUNCTION IF EXISTS f_desperdicio_descontar();
--- DROP FUNCTION IF EXISTS f_detalle_venta_total();
+-- Componentes
+-- Servicios del diseño físico (diagrama Componentes del Astah).
+-- Las reglas que ya protegen las restricciones y los disparadores no se repiten aquí.
+
+-- SV_ENTRADAS: compras de ingredientes
+CREATE SCHEMA sv_entradas;
+
+-- Registrar una compra (todavía sin recibir)
+CREATE FUNCTION sv_entradas.adicionarCompra(p_fecha DATE, p_id_proveedor INT)
+RETURNS VOID AS $$
+BEGIN
+    INSERT INTO Compras (Fecha_compra, id_proveedor)
+    VALUES (p_fecha, p_id_proveedor);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Agregar un ingrediente a la compra
+CREATE FUNCTION sv_entradas.adicionarDetalle(p_id_compra INT, p_id_ingrediente INT, p_cantidad DECIMAL, p_total DECIMAL)
+RETURNS VOID AS $$
+BEGIN
+    INSERT INTO Detalles_compra (cantidad, Total, id_compra, id_ingrediente)
+    VALUES (p_cantidad, p_total, p_id_compra, p_id_ingrediente);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Registrar la recepción: el disparador 2 suma al inventario y registra las entradas
+CREATE FUNCTION sv_entradas.modificarRecepcion(p_id_compra INT, p_fecha_recepcion DATE)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE Compras
+    SET Fecha_recepcion = p_fecha_recepcion
+    WHERE id_compra = p_id_compra;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Consultar una compra con su proveedor y sus ingredientes
+CREATE FUNCTION sv_entradas.consultarCompra(p_id_compra INT)
+RETURNS REFCURSOR AS $$
+DECLARE
+    v_cursor REFCURSOR := 'compra_cursor';
+BEGIN
+    OPEN v_cursor FOR
+        SELECT c.id_compra, c.Fecha_compra, c.Fecha_recepcion, p.nombre AS proveedor,
+               i.nombre AS ingrediente, d.cantidad, d.Total
+        FROM Compras c
+        JOIN Proveedores p ON p.id_proveedor = c.id_proveedor
+        JOIN Detalles_compra d ON d.id_compra = c.id_compra
+        JOIN Ingredientes i ON i.id_ingrediente = d.id_ingrediente
+        WHERE c.id_compra = p_id_compra
+        ORDER BY i.nombre;
+    RETURN v_cursor;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Eliminar una compra con sus detalles; si ya se recibió, sus movimientos de inventario lo impiden
+CREATE FUNCTION sv_entradas.eliminarCompra(p_id_compra INT)
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM Detalles_compra WHERE id_compra = p_id_compra;
+    DELETE FROM Compras WHERE id_compra = p_id_compra;
+END;
+$$ LANGUAGE plpgsql;
+
+-- SV_DESPERDICIOS: desperdicios y movimientos de inventario
+CREATE SCHEMA sv_desperdicios;
+
+-- Registrar un desperdicio: el disparador 7 registra la salida y el 3 revisa que alcance el inventario
+CREATE FUNCTION sv_desperdicios.adicionarDesperdicio(p_fecha DATE, p_cantidad DECIMAL, p_id_ingrediente INT, p_id_empleado INT, p_id_causa INT)
+RETURNS VOID AS $$
+BEGIN
+    INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
+    VALUES (p_fecha, p_cantidad, p_id_ingrediente, p_id_empleado, p_id_causa);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Cambiar la causa de un desperdicio
+CREATE FUNCTION sv_desperdicios.modificarCausa(p_id_desperdicio INT, p_id_causa INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE Desperdicios
+    SET id_causa = p_id_causa
+    WHERE id_desperdicio = p_id_desperdicio;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Consultar un desperdicio con su ingrediente, causa y empleado
+CREATE FUNCTION sv_desperdicios.consultarDesperdicio(p_id_desperdicio INT)
+RETURNS REFCURSOR AS $$
+DECLARE
+    v_cursor REFCURSOR := 'desperdicio_cursor';
+BEGIN
+    OPEN v_cursor FOR
+        SELECT d.id_desperdicio, d.fecha, d.cantidad, i.nombre AS ingrediente,
+               c.descripcion AS causa, e.nombre AS empleado
+        FROM Desperdicios d
+        JOIN Ingredientes i ON i.id_ingrediente = d.id_ingrediente
+        JOIN Causas_desperdicio c ON c.id_causa = d.id_causa
+        JOIN Empleados e ON e.id_empleado = d.id_empleado
+        WHERE d.id_desperdicio = p_id_desperdicio;
+    RETURN v_cursor;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Consultar los movimientos de inventario de un ingrediente
+CREATE FUNCTION sv_desperdicios.consultarMovimientos(p_id_ingrediente INT)
+RETURNS REFCURSOR AS $$
+DECLARE
+    v_cursor REFCURSOR := 'movimientos_cursor';
+BEGIN
+    OPEN v_cursor FOR
+        SELECT m.id_movimiento, m.fecha, m.tipo_movimiento, m.cantidad, m.origen
+        FROM Movimientos_inventario m
+        WHERE m.id_ingrediente = p_id_ingrediente
+        ORDER BY m.id_movimiento;
+    RETURN v_cursor;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Eliminar un desperdicio: devuelve al inventario lo que había salido y borra su movimiento
+CREATE FUNCTION sv_desperdicios.eliminarDesperdicio(p_id_desperdicio INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE Inventarios
+    SET cantidad_disponible = cantidad_disponible + COALESCE((SELECT SUM(m.cantidad)
+                                                              FROM Movimientos_inventario m
+                                                              WHERE m.id_desperdicio = p_id_desperdicio), 0)
+    WHERE id_ingrediente = (SELECT id_ingrediente FROM Desperdicios WHERE id_desperdicio = p_id_desperdicio);
+
+    DELETE FROM Movimientos_inventario WHERE id_desperdicio = p_id_desperdicio;
+    DELETE FROM Desperdicios WHERE id_desperdicio = p_id_desperdicio;
+END;
+$$ LANGUAGE plpgsql;
+
+-- XComponentes
+-- DROP SCHEMA IF EXISTS sv_entradas CASCADE;
+-- DROP SCHEMA IF EXISTS sv_desperdicios CASCADE;
+
+-- ComponentesOK
+-- Caso 1: registrar una compra al proveedor 1
+SELECT sv_entradas.adicionarCompra('2026-10-06', 1);
+
+SELECT * FROM Compras WHERE id_compra = (SELECT MAX(id_compra) FROM Compras);
+
+-- Caso 2: agregar dos ingredientes a esa compra
+SELECT sv_entradas.adicionarDetalle((SELECT MAX(id_compra) FROM Compras), 3, 20, 140000.00);
+
+SELECT sv_entradas.adicionarDetalle((SELECT MAX(id_compra) FROM Compras), 5, 10, 80000.00);
+
+SELECT * FROM Detalles_compra WHERE id_compra = (SELECT MAX(id_compra) FROM Compras);
+
+-- Caso 3: recibir la compra; el inventario de los ingredientes 3 y 5 sube solo
+SELECT * FROM Inventarios WHERE id_ingrediente IN (3, 5) ORDER BY id_ingrediente;
+
+SELECT sv_entradas.modificarRecepcion((SELECT MAX(id_compra) FROM Compras), '2026-10-08');
+
+SELECT * FROM Inventarios WHERE id_ingrediente IN (3, 5) ORDER BY id_ingrediente;
+
+SELECT * FROM Movimientos_inventario WHERE id_detalle_compra IN (SELECT id_detalle FROM Detalles_compra WHERE id_compra = (SELECT MAX(id_compra) FROM Compras));
+
+-- Caso 4: consultar la compra
+BEGIN;
+SELECT sv_entradas.consultarCompra((SELECT MAX(id_compra) FROM Compras));
+FETCH ALL FROM compra_cursor;
+COMMIT;
+
+-- Caso 5: eliminar una compra que todavía no se ha recibido
+SELECT sv_entradas.adicionarCompra('2026-10-09', 2);
+
+SELECT sv_entradas.adicionarDetalle((SELECT MAX(id_compra) FROM Compras), 4, 5, 40000.00);
+
+SELECT sv_entradas.eliminarCompra((SELECT MAX(id_compra) FROM Compras));
+
+SELECT * FROM Compras ORDER BY id_compra DESC LIMIT 2;
+
+-- Caso 6: registrar un desperdicio de 1 kg del ingrediente 3; el inventario baja solo
+SELECT * FROM Inventarios WHERE id_ingrediente = 3;
+
+SELECT sv_desperdicios.adicionarDesperdicio('2026-10-10', 1.0, 3, 1, 2);
+
+SELECT * FROM Desperdicios WHERE id_desperdicio = (SELECT MAX(id_desperdicio) FROM Desperdicios);
+
+SELECT * FROM Inventarios WHERE id_ingrediente = 3;
+
+-- Caso 7: cambiar la causa de ese desperdicio
+SELECT sv_desperdicios.modificarCausa((SELECT MAX(id_desperdicio) FROM Desperdicios), 3);
+
+BEGIN;
+SELECT sv_desperdicios.consultarDesperdicio((SELECT MAX(id_desperdicio) FROM Desperdicios));
+FETCH ALL FROM desperdicio_cursor;
+COMMIT;
+
+-- Caso 8: consultar los movimientos del ingrediente 3
+BEGIN;
+SELECT sv_desperdicios.consultarMovimientos(3);
+FETCH ALL FROM movimientos_cursor;
+COMMIT;
+
+-- Caso 9: eliminar el desperdicio; el inventario vuelve a su valor y se borra su movimiento
+SELECT sv_desperdicios.eliminarDesperdicio((SELECT MAX(id_desperdicio) FROM Desperdicios));
+
+SELECT * FROM Inventarios WHERE id_ingrediente = 3;
+
+-- ComponentesNoOK
+-- [fk_compra_proveedor] compra a un proveedor que no existe
+-- SELECT sv_entradas.adicionarCompra('2026-10-06', 999);
+
+-- [uq_detalle_compra_ingrediente] el ingrediente 1 ya está en la compra 1
+-- SELECT sv_entradas.adicionarDetalle(1, 1, 5, 30000.00);
+
+-- [ck_detalle_cantidad] cantidad cero en el detalle
+-- SELECT sv_entradas.adicionarDetalle(1, 2, 0, 30000.00);
+
+-- [ck_compra_fechas] recepción antes de la fecha de compra
+-- SELECT sv_entradas.modificarRecepcion(1, '2000-01-01');
+
+-- [fk_movimiento_detalle_compra] la compra 3 ya se recibió y tiene movimientos de inventario
+-- SELECT sv_entradas.eliminarCompra(3);
+
+-- [fk_desperdicio_causa] desperdicio con una causa que no existe
+-- SELECT sv_desperdicios.adicionarDesperdicio('2026-10-10', 1.0, 3, 1, 999);
+
+-- [ck_desperdicio_cantidad] desperdicio de cantidad cero
+-- SELECT sv_desperdicios.adicionarDesperdicio('2026-10-10', 0, 3, 1, 2);
+
+-- [fk_desperdicio_causa] cambiar la causa por una que no existe
+-- SELECT sv_desperdicios.modificarCausa(1, 999);
+
+-- [disparador 3] desperdicio de 999 unidades: no alcanza el inventario
+-- SELECT sv_desperdicios.adicionarDesperdicio('2026-10-10', 999, 5, 1, 2);

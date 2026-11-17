@@ -43,7 +43,7 @@ CREATE TABLE Recetas (
     Descripcion        VARCHAR(255)
 );
 
--- Cuánto lleva cada receta de cada ingrediente (reemplaza el texto Recetas.ingredientes)
+
 CREATE TABLE Recetas_ingredientes (
     id_receta       INT NOT NULL,
     id_ingrediente  INT NOT NULL,
@@ -100,8 +100,7 @@ CREATE TABLE Platos (
     id_receta          INT NOT NULL
 );
 
--- Una venta es la cuenta de un mesero; los platos vendidos van en Detalles_venta.
--- El total lo mantiene el disparador 8.
+
 CREATE TABLE Ventas (
     id_venta      SERIAL,
     fecha_venta   DATE NOT NULL,
@@ -126,7 +125,7 @@ CREATE TABLE Desperdicios (
     id_causa                    INT NOT NULL
 );
 
--- Lo que ofrece el restaurante
+
 CREATE TABLE Menus (
     id_menu       SERIAL,
     nombre        VARCHAR(100) NOT NULL,
@@ -419,7 +418,7 @@ ORDER BY c.fecha_compra;
 -- O2. Como administrador quiero consultar los proveedores
 -- para saber quien es el proveedor que mas envia ingredientes.
 SELECT p.nombre AS proveedor, p.telefono, p.correo,
-       COUNT(DISTINCT c.id_compra) AS compras, SUM(dc.cantidad) AS cantidad_enviada
+COUNT(DISTINCT c.id_compra) AS compras, SUM(dc.cantidad) AS cantidad_enviada
 FROM Proveedores p
 JOIN Compras c ON c.id_proveedor = p.id_proveedor
 JOIN Detalles_compra dc ON dc.id_compra = c.id_compra
@@ -430,7 +429,7 @@ ORDER BY cantidad_enviada DESC;
 -- para saber que ingredientes tengo disponibles y que tengo que pedir.
 -- Un sobrante negativo significa que esta por debajo del stock minimo y hay que pedirlo.
 SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.unidad_medida, i.stock_minimo,
-       inv.cantidad_disponible - i.stock_minimo AS sobrante
+inv.cantidad_disponible - i.stock_minimo AS sobrante
 FROM Inventarios inv
 JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
 ORDER BY sobrante, i.nombre;
@@ -438,8 +437,8 @@ ORDER BY sobrante, i.nombre;
 -- O4. Como administrador quiero consultar cada movimiento del inventario
 -- para saber cual ingrediente tiene mas rotacion y cual se queda mucho tiempo sin salir.
 SELECT i.nombre AS ingrediente, m.tipo_movimiento, COUNT(*) AS movimientos,
-       SUM(m.cantidad) AS cantidad_total, MAX(m.fecha) AS ultimo_movimiento,
-       CURRENT_DATE - MAX(m.fecha) AS dias_sin_movimiento
+SUM(m.cantidad) AS cantidad_total, MAX(m.fecha) AS ultimo_movimiento,
+CURRENT_DATE - MAX(m.fecha) AS dias_sin_movimiento
 FROM Movimientos_inventario m
 JOIN Ingredientes i ON i.id_ingrediente = m.id_ingrediente
 GROUP BY i.nombre, m.tipo_movimiento
@@ -448,7 +447,7 @@ ORDER BY m.tipo_movimiento, cantidad_total DESC;
 -- O5. Como administrador quiero consultar las ventas realizadas de cada mes
 -- para tener un balance entre el desperdicio de comida y las ganancias de las ventas.
 SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
-       COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
+COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
 FROM Ventas v
 GROUP BY EXTRACT(YEAR FROM v.fecha_venta), EXTRACT(MONTH FROM v.fecha_venta)
 ORDER BY anio, mes;
@@ -456,7 +455,7 @@ ORDER BY anio, mes;
 -- O6. Como administrador quiero consultar los platos mas vendidos de cada mes
 -- para comprar los ingredientes mas usados en esos platos y reducir los desperdicios.
 SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
-       p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
+p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
 FROM Detalles_venta dv
 JOIN Ventas v ON v.id_venta = dv.id_venta
 JOIN Platos p ON p.id_plato = dv.id_plato
@@ -466,8 +465,8 @@ ORDER BY anio, mes, unidades_vendidas DESC;
 -- O7. Como administrador quiero consultar la lista de compras con los ingredientes que estan por debajo del stock minimo
 -- para saber que tengo que pedir a los proveedores antes de que se acaben.
 SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.stock_minimo,
-       i.stock_minimo - inv.cantidad_disponible AS faltante,
-       (i.stock_minimo - inv.cantidad_disponible) * i.costo_unitario AS costo_estimado
+i.stock_minimo - inv.cantidad_disponible AS faltante,
+(i.stock_minimo - inv.cantidad_disponible) * i.costo_unitario AS costo_estimado
 FROM Inventarios inv
 JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
 WHERE inv.cantidad_disponible < i.stock_minimo
@@ -477,7 +476,7 @@ ORDER BY faltante DESC;
 -- para avisar a tiempo, reponer el ingrediente y no dejar de ofrecer esos platos.
 -- Un plato esta en riesgo si algun ingrediente de su receta esta por debajo del stock minimo.
 SELECT DISTINCT m.nombre AS menu, p.nombre AS plato, i.nombre AS ingrediente_en_riesgo,
-       inv.cantidad_disponible, i.stock_minimo
+inv.cantidad_disponible, i.stock_minimo
 FROM Menus m
 JOIN Menus_platos mp ON mp.id_menu = m.id_menu
 JOIN Platos p ON p.id_plato = mp.id_plato
@@ -558,7 +557,7 @@ ORDER BY p.nombre;
 -- O16. Como cliente quiero consultar las recetas
 -- para decidir que comer.
 SELECT r.Nombre AS receta, r.Descripcion, r.tiempo_preparacion,
-       i.nombre AS ingrediente, ri.cantidad, i.unidad_medida
+i.nombre AS ingrediente, ri.cantidad, i.unidad_medida
 FROM Recetas r
 JOIN Recetas_ingredientes ri ON ri.id_receta = r.id_receta
 JOIN Ingredientes i ON i.id_ingrediente = ri.id_ingrediente
@@ -569,7 +568,7 @@ ORDER BY r.Nombre, i.nombre;
 -- margen_minimo es lo que sobra del ingrediente mas justo para una porcion:
 -- si es negativo el plato no esta disponible porque falta ese ingrediente.
 SELECT p.nombre AS plato, COUNT(*) AS ingredientes,
-       MIN(inv.cantidad_disponible - ri.cantidad) AS margen_minimo
+MIN(inv.cantidad_disponible - ri.cantidad) AS margen_minimo
 FROM Platos p
 JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
 JOIN Inventarios inv ON inv.id_ingrediente = ri.id_ingrediente
@@ -653,11 +652,9 @@ ORDER BY g.anio, g.mes, gasto_total DESC;
 -- G7. Como gerente quiero consultar cuantos dias alcanza cada ingrediente segun su gasto promedio de los ultimos 3 meses
 -- para pedir a tiempo y evitar quedarme sin ingredientes.
 -- Dias que alcanza = cantidad disponible / (gasto de los ultimos 3 meses / 90 dias).
--- Los 3 meses terminan en la ultima venta registrada; para contar desde hoy cambie
--- (SELECT MAX(fecha_venta) FROM Ventas) por CURRENT_DATE.
-SELECT i.nombre AS ingrediente, inv.cantidad_disponible,
-       ROUND(SUM(g.cantidad) / 90, 2) AS gasto_promedio_diario,
-       ROUND(inv.cantidad_disponible / (SUM(g.cantidad) / 90), 1) AS dias_que_alcanza
+-- Los 3 meses terminan en la ultima venta registrada
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible,ROUND(SUM(g.cantidad) / 90, 2) AS gasto_promedio_diario,
+ROUND(inv.cantidad_disponible / (SUM(g.cantidad) / 90), 1) AS dias_que_alcanza
 FROM (
     SELECT v.fecha_venta AS fecha, ri.id_ingrediente, ri.cantidad * dv.cantidad AS cantidad
     FROM Detalles_venta dv
@@ -966,60 +963,6 @@ INSERT INTO Menus_platos (id_menu, id_plato, precio, disponible) VALUES
 (2, 11, 15000.00, FALSE),
 (3, 8, 22000.00, TRUE),
 (3, 7, 28000.00, TRUE);
-
--- PoblarOK volumen: ventas, compras y desperdicios de julio a octubre de 2026
--- 150 ventas nuevas (id 16 a 165), cada una atendida por un mesero distinto en rotación
-INSERT INTO Ventas (fecha_venta, total, id_mesero)
-SELECT
-    DATE '2026-07-01' + (i * 7) % 96,
-    0,
-    (SELECT id_empleado FROM Meseros ORDER BY id_empleado OFFSET i % (SELECT COUNT(*) FROM Meseros) LIMIT 1)
-FROM generate_series(1, 150) AS i;
-
--- 3 platos distintos por venta (450 detalles)
-INSERT INTO Detalles_venta (cantidad, precio_unitario, id_venta, id_plato)
-SELECT
-    1 + (v.id_venta + k) % 3,
-    15000.00 + ((v.id_venta + k) % 5) * 3000,
-    v.id_venta,
-    1 + (v.id_venta + k * 4) % 15
-FROM Ventas v, generate_series(0, 2) AS k
-WHERE v.id_venta > 15;
-
--- El total de cada venta nueva es la suma de sus detalles
-UPDATE Ventas
-SET total = (SELECT SUM(d.cantidad * d.precio_unitario)
-             FROM Detalles_venta d
-             WHERE d.id_venta = Ventas.id_venta)
-WHERE id_venta > 15;
-
--- 60 compras nuevas (id 16 a 75), recibidas entre 1 y 5 días después
-INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
-SELECT
-    DATE '2026-07-01' + (i * 5) % 96,
-    DATE '2026-07-01' + (i * 5) % 96 + 1 + i % 5,
-    (SELECT id_proveedor FROM Proveedores ORDER BY id_proveedor OFFSET i % (SELECT COUNT(*) FROM Proveedores) LIMIT 1)
-FROM generate_series(1, 60) AS i;
-
--- 3 ingredientes distintos por compra (180 detalles)
-INSERT INTO Detalles_compra (cantidad, Total, id_compra, id_ingrediente)
-SELECT
-    10 + (c.id_compra + k) % 11,
-    (10 + (c.id_compra + k) % 11) * 7000.00,
-    c.id_compra,
-    1 + (c.id_compra + k * 4) % 15
-FROM Compras c, generate_series(0, 2) AS k
-WHERE c.id_compra > 15;
-
--- 100 desperdicios nuevos
-INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
-SELECT
-    DATE '2026-07-01' + (i * 3) % 96,
-    0.5 + (i % 6) * 0.5,
-    1 + i % 15,
-    1 + i % 30,
-    1 + i % 15
-FROM generate_series(1, 100) AS i;
 
 -- PoblarNoOK
 -- INSERT INTO Proveedores (nombre, telefono, correo)
@@ -1764,8 +1707,7 @@ DECLARE
     v_cursor REFCURSOR := 'compra_cursor';
 BEGIN
     OPEN v_cursor FOR
-        SELECT c.id_compra, c.Fecha_compra, c.Fecha_recepcion, p.nombre AS proveedor,
-               i.nombre AS ingrediente, d.cantidad, d.Total
+        SELECT c.id_compra, c.Fecha_compra, c.Fecha_recepcion, p.nombre AS proveedor,i.nombre AS ingrediente, d.cantidad, d.Total
         FROM Compras c
         JOIN Proveedores p ON p.id_proveedor = c.id_proveedor
         JOIN Detalles_compra d ON d.id_compra = c.id_compra
@@ -1951,3 +1893,79 @@ SELECT * FROM Inventarios WHERE id_ingrediente = 3;
 
 -- [disparador 3] desperdicio de 999 unidades: no alcanza el inventario
 -- SELECT sv_desperdicios.adicionarDesperdicio('2026-10-10', 999, 5, 1, 2);
+
+-- Poblar masivo (va al final, cuando ya existen los disparadores)
+-- Agrega 940 filas: 150 ventas con 450 detalles, 60 compras con 180 detalles y 100 desperdicios.
+-- Se apagan los disparadores solo mientras se insertan, para que no descuenten del inventario.
+ALTER TABLE Ventas DISABLE TRIGGER USER;
+ALTER TABLE Detalles_venta DISABLE TRIGGER USER;
+ALTER TABLE Compras DISABLE TRIGGER USER;
+ALTER TABLE Detalles_compra DISABLE TRIGGER USER;
+ALTER TABLE Desperdicios DISABLE TRIGGER USER;
+
+-- Último id de venta y de compra que hay antes de insertar
+CREATE TEMP TABLE limites AS
+SELECT (SELECT COALESCE(MAX(id_venta), 0) FROM Ventas) AS ultima_venta,
+       (SELECT COALESCE(MAX(id_compra), 0) FROM Compras) AS ultima_compra;
+
+-- 150 ventas, cada una atendida por un mesero distinto en rotación
+INSERT INTO Ventas (fecha_venta, total, id_mesero)
+SELECT
+    DATE '2026-07-01' + (i * 7) % 96,
+    0,
+    (SELECT id_empleado FROM Meseros ORDER BY id_empleado OFFSET i % (SELECT COUNT(*) FROM Meseros) LIMIT 1)
+FROM generate_series(1, 150) AS i;
+
+-- 3 platos distintos por venta (450 detalles)
+INSERT INTO Detalles_venta (cantidad, precio_unitario, id_venta, id_plato)
+SELECT
+    1 + (v.id_venta + k) % 3,
+    15000.00 + ((v.id_venta + k) % 5) * 3000,
+    v.id_venta,
+    1 + (v.id_venta + k * 4) % 15
+FROM Ventas v, generate_series(0, 2) AS k
+WHERE v.id_venta > (SELECT ultima_venta FROM limites);
+
+-- El total de cada venta nueva es la suma de sus detalles
+UPDATE Ventas
+SET total = (SELECT SUM(d.cantidad * d.precio_unitario)
+             FROM Detalles_venta d
+             WHERE d.id_venta = Ventas.id_venta)
+WHERE id_venta > (SELECT ultima_venta FROM limites);
+
+-- 60 compras, recibidas entre 1 y 5 días después
+INSERT INTO Compras (Fecha_compra, Fecha_recepcion, id_proveedor)
+SELECT
+    DATE '2026-07-01' + (i * 5) % 96,
+    DATE '2026-07-01' + (i * 5) % 96 + 1 + i % 5,
+    (SELECT id_proveedor FROM Proveedores ORDER BY id_proveedor OFFSET i % (SELECT COUNT(*) FROM Proveedores) LIMIT 1)
+FROM generate_series(1, 60) AS i;
+
+-- 3 ingredientes distintos por compra (180 detalles)
+INSERT INTO Detalles_compra (cantidad, Total, id_compra, id_ingrediente)
+SELECT
+    10 + (c.id_compra + k) % 11,
+    (10 + (c.id_compra + k) % 11) * 7000.00,
+    c.id_compra,
+    1 + (c.id_compra + k * 4) % 15
+FROM Compras c, generate_series(0, 2) AS k
+WHERE c.id_compra > (SELECT ultima_compra FROM limites);
+
+-- 100 desperdicios
+INSERT INTO Desperdicios (fecha, cantidad, id_ingrediente, id_empleado, id_causa)
+SELECT
+    DATE '2026-07-01' + (i * 3) % 96,
+    0.5 + (i % 6) * 0.5,
+    1 + i % 15,
+    1 + i % 30,
+    1 + i % 15
+FROM generate_series(1, 100) AS i;
+
+DROP TABLE limites;
+
+ALTER TABLE Ventas ENABLE TRIGGER USER;
+ALTER TABLE Detalles_venta ENABLE TRIGGER USER;
+ALTER TABLE Compras ENABLE TRIGGER USER;
+ALTER TABLE Detalles_compra ENABLE TRIGGER USER;
+ALTER TABLE Desperdicios ENABLE TRIGGER USER;
+

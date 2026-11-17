@@ -1,0 +1,17 @@
+-- XDisparadores
+-- DROP TRIGGER IF EXISTS t_cocinero_no_mesero ON Cocineros;
+-- DROP TRIGGER IF EXISTS t_recibir_compra ON Compras;
+-- DROP TRIGGER IF EXISTS t_salida_con_inventario ON Movimientos_inventario;
+-- DROP TRIGGER IF EXISTS t_mesero_no_cocinero ON Meseros;
+-- DROP TRIGGER IF EXISTS t_descontar_salida ON Movimientos_inventario;
+-- DROP TRIGGER IF EXISTS t_venta_descontar_ingredientes ON Detalles_venta;
+-- DROP TRIGGER IF EXISTS t_detalle_venta_total ON Detalles_venta;
+-- DROP TRIGGER IF EXISTS t_desperdicio_descontar ON Desperdicios;
+-- DROP FUNCTION IF EXISTS f_cocinero_no_mesero();
+-- DROP FUNCTION IF EXISTS f_recibir_compra();
+-- DROP FUNCTION IF EXISTS f_salida_con_inventario();
+-- DROP FUNCTION IF EXISTS f_mesero_no_cocinero();
+-- DROP FUNCTION IF EXISTS f_descontar_salida();
+-- DROP FUNCTION IF EXISTS f_venta_descontar_ingredientes();
+-- DROP FUNCTION IF EXISTS f_desperdicio_descontar();
+-- DROP FUNCTION IF EXISTS f_detalle_venta_total();

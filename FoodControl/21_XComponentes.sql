@@ -1,0 +1,3 @@
+-- XComponentes
+-- DROP SCHEMA IF EXISTS sv_entradas CASCADE;
+-- DROP SCHEMA IF EXISTS sv_desperdicios CASCADE;

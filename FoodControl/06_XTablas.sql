@@ -1,0 +1,19 @@
+-- XTablas
+DROP TABLE IF EXISTS Menus_platos;
+DROP TABLE IF EXISTS Menus;
+DROP TABLE IF EXISTS Recetas_ingredientes;
+DROP TABLE IF EXISTS Movimientos_inventario;
+DROP TABLE IF EXISTS Desperdicios;
+DROP TABLE IF EXISTS Detalles_venta;
+DROP TABLE IF EXISTS Ventas;
+DROP TABLE IF EXISTS Detalles_compra;
+DROP TABLE IF EXISTS Compras;
+DROP TABLE IF EXISTS Inventarios;
+DROP TABLE IF EXISTS Platos;
+DROP TABLE IF EXISTS Meseros;
+DROP TABLE IF EXISTS Cocineros;
+DROP TABLE IF EXISTS Recetas;
+DROP TABLE IF EXISTS Ingredientes;
+DROP TABLE IF EXISTS Causas_desperdicio;
+DROP TABLE IF EXISTS Empleados;
+DROP TABLE IF EXISTS Proveedores;

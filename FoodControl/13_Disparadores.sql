@@ -27,12 +27,12 @@ BEGIN
 
         UPDATE Inventarios
         SET cantidad_disponible = cantidad_disponible + (SELECT SUM(d.cantidad)
-FROM Detalles_compra d
-WHERE d.id_compra = NEW.id_compra
-AND d.id_ingrediente = Inventarios.id_ingrediente)
+                                                         FROM Detalles_compra d
+                                                         WHERE d.id_compra = NEW.id_compra
+                                                           AND d.id_ingrediente = Inventarios.id_ingrediente)
         WHERE id_ingrediente IN (SELECT id_ingrediente
-FROM Detalles_compra
-WHERE id_compra = NEW.id_compra);
+                                 FROM Detalles_compra
+                                 WHERE id_compra = NEW.id_compra);
 
 -- un movimiento por cada detalle de la compra, enlazado a él
         INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra)

@@ -40,7 +40,7 @@ DECLARE
     v_cursor REFCURSOR := 'compra_cursor';
 BEGIN
     OPEN v_cursor FOR
-        SELECT c.id_compra, c.Fecha_compra, c.Fecha_recepcion, p.nombre AS proveedor,i.nombre AS ingrediente, d.cantidad, d.Total
+        SELECT c.id_compra, c.Fecha_compra, c.Fecha_recepcion, p.nombre AS proveedor, i.nombre AS ingrediente, d.cantidad, d.Total
         FROM Compras c
         JOIN Proveedores p ON p.id_proveedor = c.id_proveedor
         JOIN Detalles_compra d ON d.id_compra = c.id_compra

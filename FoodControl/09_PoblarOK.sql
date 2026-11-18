@@ -5,7 +5,7 @@ INSERT INTO Proveedores (nombre, telefono, correo) VALUES
 ('Carnes Premium Ltda',     3009876543, 'info@carnespremium.com');
 
 INSERT INTO Empleados (nombre, salario) VALUES
-('Carlos Ramírez', 1800000.00),
+('Carlos Ramírez',  1800000.00),
 ('Laura Gómez',     1600000.00),
 ('Andrés Torres',   1700000.00),
 ('Mariana Ríos',    1550000.00);

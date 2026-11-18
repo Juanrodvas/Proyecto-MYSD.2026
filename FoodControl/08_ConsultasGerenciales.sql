@@ -76,8 +76,8 @@ ORDER BY g.anio, g.mes, gasto_total DESC;
 -- para pedir a tiempo y evitar quedarme sin ingredientes.
 -- Dias que alcanza = cantidad disponible / (gasto de los ultimos 3 meses / 90 dias).
 -- Los 3 meses terminan en la ultima venta registrada
-SELECT i.nombre AS ingrediente, inv.cantidad_disponible,ROUND(SUM(g.cantidad) / 90, 2) AS gasto_promedio_diario,
-ROUND(inv.cantidad_disponible / (SUM(g.cantidad) / 90), 1) AS dias_que_alcanza
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible, ROUND(SUM(g.cantidad) / 90, 2) AS gasto_promedio_diario,
+       ROUND(inv.cantidad_disponible / (SUM(g.cantidad) / 90), 1) AS dias_que_alcanza
 FROM (
     SELECT v.fecha_venta AS fecha, ri.id_ingrediente, ri.cantidad * dv.cantidad AS cantidad
     FROM Detalles_venta dv

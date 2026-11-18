@@ -43,7 +43,6 @@ CREATE TABLE Recetas (
     Descripcion        VARCHAR(255)
 );
 
-
 CREATE TABLE Recetas_ingredientes (
     id_receta       INT NOT NULL,
     id_ingrediente  INT NOT NULL,
@@ -61,18 +60,18 @@ CREATE TABLE Meseros (
 );
 
 CREATE TABLE Inventarios (
-    id_ingrediente      INT NOT NULL,
-    cantidad_disponible DECIMAL(10,2) NOT NULL DEFAULT 0
+    id_ingrediente       INT NOT NULL,
+    cantidad_disponible  DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE Movimientos_inventario (
-    id_movimiento   SERIAL,
-    fecha           DATE NOT NULL,
-    tipo_movimiento VARCHAR(20) NOT NULL,
-    cantidad        DECIMAL(10,2) NOT NULL,
-    id_ingrediente  INT NOT NULL,
-    origen          VARCHAR(20) NOT NULL,
-    id_empleado     INT,
+    id_movimiento      SERIAL,
+    fecha              DATE NOT NULL,
+    tipo_movimiento    VARCHAR(20) NOT NULL,
+    cantidad           DECIMAL(10,2) NOT NULL,
+    id_ingrediente     INT NOT NULL,
+    origen             VARCHAR(20) NOT NULL,
+    id_empleado        INT,
     id_detalle_compra  INT,
     id_detalle_venta   INT,
     id_desperdicio     INT
@@ -100,7 +99,6 @@ CREATE TABLE Platos (
     id_receta          INT NOT NULL
 );
 
-
 CREATE TABLE Ventas (
     id_venta      SERIAL,
     fecha_venta   DATE NOT NULL,
@@ -117,14 +115,13 @@ CREATE TABLE Detalles_venta (
 );
 
 CREATE TABLE Desperdicios (
-    id_desperdicio              SERIAL,
-    fecha                       DATE NOT NULL,
-    cantidad                    DECIMAL(10,2) NOT NULL,
-    id_ingrediente              INT NOT NULL,
-    id_empleado                 INT NOT NULL,
-    id_causa                    INT NOT NULL
+    id_desperdicio  SERIAL,
+    fecha           DATE NOT NULL,
+    cantidad        DECIMAL(10,2) NOT NULL,
+    id_ingrediente  INT NOT NULL,
+    id_empleado     INT NOT NULL,
+    id_causa        INT NOT NULL
 );
-
 
 CREATE TABLE Menus (
     id_menu       SERIAL,
@@ -418,7 +415,7 @@ ORDER BY c.fecha_compra;
 -- O2. Como administrador quiero consultar los proveedores
 -- para saber quien es el proveedor que mas envia ingredientes.
 SELECT p.nombre AS proveedor, p.telefono, p.correo,
-COUNT(DISTINCT c.id_compra) AS compras, SUM(dc.cantidad) AS cantidad_enviada
+       COUNT(DISTINCT c.id_compra) AS compras, SUM(dc.cantidad) AS cantidad_enviada
 FROM Proveedores p
 JOIN Compras c ON c.id_proveedor = p.id_proveedor
 JOIN Detalles_compra dc ON dc.id_compra = c.id_compra
@@ -429,7 +426,7 @@ ORDER BY cantidad_enviada DESC;
 -- para saber que ingredientes tengo disponibles y que tengo que pedir.
 -- Un sobrante negativo significa que esta por debajo del stock minimo y hay que pedirlo.
 SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.unidad_medida, i.stock_minimo,
-inv.cantidad_disponible - i.stock_minimo AS sobrante
+       inv.cantidad_disponible - i.stock_minimo AS sobrante
 FROM Inventarios inv
 JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
 ORDER BY sobrante, i.nombre;
@@ -437,8 +434,8 @@ ORDER BY sobrante, i.nombre;
 -- O4. Como administrador quiero consultar cada movimiento del inventario
 -- para saber cual ingrediente tiene mas rotacion y cual se queda mucho tiempo sin salir.
 SELECT i.nombre AS ingrediente, m.tipo_movimiento, COUNT(*) AS movimientos,
-SUM(m.cantidad) AS cantidad_total, MAX(m.fecha) AS ultimo_movimiento,
-CURRENT_DATE - MAX(m.fecha) AS dias_sin_movimiento
+       SUM(m.cantidad) AS cantidad_total, MAX(m.fecha) AS ultimo_movimiento,
+       CURRENT_DATE - MAX(m.fecha) AS dias_sin_movimiento
 FROM Movimientos_inventario m
 JOIN Ingredientes i ON i.id_ingrediente = m.id_ingrediente
 GROUP BY i.nombre, m.tipo_movimiento
@@ -447,7 +444,7 @@ ORDER BY m.tipo_movimiento, cantidad_total DESC;
 -- O5. Como administrador quiero consultar las ventas realizadas de cada mes
 -- para tener un balance entre el desperdicio de comida y las ganancias de las ventas.
 SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
-COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
+       COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
 FROM Ventas v
 GROUP BY EXTRACT(YEAR FROM v.fecha_venta), EXTRACT(MONTH FROM v.fecha_venta)
 ORDER BY anio, mes;
@@ -455,7 +452,7 @@ ORDER BY anio, mes;
 -- O6. Como administrador quiero consultar los platos mas vendidos de cada mes
 -- para comprar los ingredientes mas usados en esos platos y reducir los desperdicios.
 SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
-p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
+       p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
 FROM Detalles_venta dv
 JOIN Ventas v ON v.id_venta = dv.id_venta
 JOIN Platos p ON p.id_plato = dv.id_plato
@@ -465,8 +462,8 @@ ORDER BY anio, mes, unidades_vendidas DESC;
 -- O7. Como administrador quiero consultar la lista de compras con los ingredientes que estan por debajo del stock minimo
 -- para saber que tengo que pedir a los proveedores antes de que se acaben.
 SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.stock_minimo,
-i.stock_minimo - inv.cantidad_disponible AS faltante,
-(i.stock_minimo - inv.cantidad_disponible) * i.costo_unitario AS costo_estimado
+       i.stock_minimo - inv.cantidad_disponible AS faltante,
+       (i.stock_minimo - inv.cantidad_disponible) * i.costo_unitario AS costo_estimado
 FROM Inventarios inv
 JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
 WHERE inv.cantidad_disponible < i.stock_minimo
@@ -476,7 +473,7 @@ ORDER BY faltante DESC;
 -- para avisar a tiempo, reponer el ingrediente y no dejar de ofrecer esos platos.
 -- Un plato esta en riesgo si algun ingrediente de su receta esta por debajo del stock minimo.
 SELECT DISTINCT m.nombre AS menu, p.nombre AS plato, i.nombre AS ingrediente_en_riesgo,
-inv.cantidad_disponible, i.stock_minimo
+                inv.cantidad_disponible, i.stock_minimo
 FROM Menus m
 JOIN Menus_platos mp ON mp.id_menu = m.id_menu
 JOIN Platos p ON p.id_plato = mp.id_plato
@@ -557,7 +554,7 @@ ORDER BY p.nombre;
 -- O16. Como cliente quiero consultar las recetas
 -- para decidir que comer.
 SELECT r.Nombre AS receta, r.Descripcion, r.tiempo_preparacion,
-i.nombre AS ingrediente, ri.cantidad, i.unidad_medida
+       i.nombre AS ingrediente, ri.cantidad, i.unidad_medida
 FROM Recetas r
 JOIN Recetas_ingredientes ri ON ri.id_receta = r.id_receta
 JOIN Ingredientes i ON i.id_ingrediente = ri.id_ingrediente
@@ -568,7 +565,7 @@ ORDER BY r.Nombre, i.nombre;
 -- margen_minimo es lo que sobra del ingrediente mas justo para una porcion:
 -- si es negativo el plato no esta disponible porque falta ese ingrediente.
 SELECT p.nombre AS plato, COUNT(*) AS ingredientes,
-MIN(inv.cantidad_disponible - ri.cantidad) AS margen_minimo
+       MIN(inv.cantidad_disponible - ri.cantidad) AS margen_minimo
 FROM Platos p
 JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
 JOIN Inventarios inv ON inv.id_ingrediente = ri.id_ingrediente
@@ -653,8 +650,8 @@ ORDER BY g.anio, g.mes, gasto_total DESC;
 -- para pedir a tiempo y evitar quedarme sin ingredientes.
 -- Dias que alcanza = cantidad disponible / (gasto de los ultimos 3 meses / 90 dias).
 -- Los 3 meses terminan en la ultima venta registrada
-SELECT i.nombre AS ingrediente, inv.cantidad_disponible,ROUND(SUM(g.cantidad) / 90, 2) AS gasto_promedio_diario,
-ROUND(inv.cantidad_disponible / (SUM(g.cantidad) / 90), 1) AS dias_que_alcanza
+SELECT i.nombre AS ingrediente, inv.cantidad_disponible, ROUND(SUM(g.cantidad) / 90, 2) AS gasto_promedio_diario,
+       ROUND(inv.cantidad_disponible / (SUM(g.cantidad) / 90), 1) AS dias_que_alcanza
 FROM (
     SELECT v.fecha_venta AS fecha, ri.id_ingrediente, ri.cantidad * dv.cantidad AS cantidad
     FROM Detalles_venta dv
@@ -707,7 +704,7 @@ INSERT INTO Proveedores (nombre, telefono, correo) VALUES
 ('Carnes Premium Ltda',     3009876543, 'info@carnespremium.com');
 
 INSERT INTO Empleados (nombre, salario) VALUES
-('Carlos Ramírez', 1800000.00),
+('Carlos Ramírez',  1800000.00),
 ('Laura Gómez',     1600000.00),
 ('Andrés Torres',   1700000.00),
 ('Mariana Ríos',    1550000.00);
@@ -1294,15 +1291,19 @@ CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio);
 -- Un movimiento viene como mucho de una cosa (compra, venta o desperdicio) y debe coincidir con su origen
 ALTER TABLE Movimientos_inventario
 ADD CONSTRAINT ck_movimiento_trazabilidad
-CHECK ((id_detalle_compra IS NULL OR (id_detalle_venta IS NULL AND id_desperdicio IS NULL AND origen = 'Compra'))
-   AND (id_detalle_venta IS NULL OR (id_desperdicio IS NULL AND origen = 'Venta'))
-   AND (id_desperdicio IS NULL OR origen = 'Desperdicio'));
+CHECK (
+    (id_detalle_compra IS NULL OR (id_detalle_venta IS NULL AND id_desperdicio IS NULL AND origen = 'Compra'))
+    AND (id_detalle_venta IS NULL OR (id_desperdicio IS NULL AND origen = 'Venta'))
+    AND (id_desperdicio IS NULL OR origen = 'Desperdicio')
+);
 
 -- Una entrada solo puede venir de una compra; una salida, de una venta o de un desperdicio
 ALTER TABLE Movimientos_inventario
 ADD CONSTRAINT ck_movimiento_tipo_origen
-CHECK ((tipo_movimiento = 'Entrada' AND origen = 'Compra')
-    OR (tipo_movimiento = 'Salida' AND origen IN ('Venta', 'Desperdicio')));
+CHECK (
+    (tipo_movimiento = 'Entrada' AND origen = 'Compra')
+    OR (tipo_movimiento = 'Salida' AND origen IN ('Venta', 'Desperdicio'))
+);
 
 -- Disparadores
 ---Disparador 1: un cocinero no puede ser mesero
@@ -1333,12 +1334,12 @@ BEGIN
 
         UPDATE Inventarios
         SET cantidad_disponible = cantidad_disponible + (SELECT SUM(d.cantidad)
-FROM Detalles_compra d
-WHERE d.id_compra = NEW.id_compra
-AND d.id_ingrediente = Inventarios.id_ingrediente)
+                                                         FROM Detalles_compra d
+                                                         WHERE d.id_compra = NEW.id_compra
+                                                           AND d.id_ingrediente = Inventarios.id_ingrediente)
         WHERE id_ingrediente IN (SELECT id_ingrediente
-FROM Detalles_compra
-WHERE id_compra = NEW.id_compra);
+                                 FROM Detalles_compra
+                                 WHERE id_compra = NEW.id_compra);
 
 -- un movimiento por cada detalle de la compra, enlazado a él
         INSERT INTO Movimientos_inventario (fecha, tipo_movimiento, cantidad, id_ingrediente, origen, id_detalle_compra)
@@ -1707,7 +1708,7 @@ DECLARE
     v_cursor REFCURSOR := 'compra_cursor';
 BEGIN
     OPEN v_cursor FOR
-        SELECT c.id_compra, c.Fecha_compra, c.Fecha_recepcion, p.nombre AS proveedor,i.nombre AS ingrediente, d.cantidad, d.Total
+        SELECT c.id_compra, c.Fecha_compra, c.Fecha_recepcion, p.nombre AS proveedor, i.nombre AS ingrediente, d.cantidad, d.Total
         FROM Compras c
         JOIN Proveedores p ON p.id_proveedor = c.id_proveedor
         JOIN Detalles_compra d ON d.id_compra = c.id_compra

@@ -14,7 +14,7 @@ ORDER BY c.fecha_compra;
 -- O2. Como administrador quiero consultar los proveedores
 -- para saber quien es el proveedor que mas envia ingredientes.
 SELECT p.nombre AS proveedor, p.telefono, p.correo,
-COUNT(DISTINCT c.id_compra) AS compras, SUM(dc.cantidad) AS cantidad_enviada
+       COUNT(DISTINCT c.id_compra) AS compras, SUM(dc.cantidad) AS cantidad_enviada
 FROM Proveedores p
 JOIN Compras c ON c.id_proveedor = p.id_proveedor
 JOIN Detalles_compra dc ON dc.id_compra = c.id_compra
@@ -25,7 +25,7 @@ ORDER BY cantidad_enviada DESC;
 -- para saber que ingredientes tengo disponibles y que tengo que pedir.
 -- Un sobrante negativo significa que esta por debajo del stock minimo y hay que pedirlo.
 SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.unidad_medida, i.stock_minimo,
-inv.cantidad_disponible - i.stock_minimo AS sobrante
+       inv.cantidad_disponible - i.stock_minimo AS sobrante
 FROM Inventarios inv
 JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
 ORDER BY sobrante, i.nombre;
@@ -33,8 +33,8 @@ ORDER BY sobrante, i.nombre;
 -- O4. Como administrador quiero consultar cada movimiento del inventario
 -- para saber cual ingrediente tiene mas rotacion y cual se queda mucho tiempo sin salir.
 SELECT i.nombre AS ingrediente, m.tipo_movimiento, COUNT(*) AS movimientos,
-SUM(m.cantidad) AS cantidad_total, MAX(m.fecha) AS ultimo_movimiento,
-CURRENT_DATE - MAX(m.fecha) AS dias_sin_movimiento
+       SUM(m.cantidad) AS cantidad_total, MAX(m.fecha) AS ultimo_movimiento,
+       CURRENT_DATE - MAX(m.fecha) AS dias_sin_movimiento
 FROM Movimientos_inventario m
 JOIN Ingredientes i ON i.id_ingrediente = m.id_ingrediente
 GROUP BY i.nombre, m.tipo_movimiento
@@ -43,7 +43,7 @@ ORDER BY m.tipo_movimiento, cantidad_total DESC;
 -- O5. Como administrador quiero consultar las ventas realizadas de cada mes
 -- para tener un balance entre el desperdicio de comida y las ganancias de las ventas.
 SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
-COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
+       COUNT(*) AS cuentas, SUM(v.total) AS total_vendido
 FROM Ventas v
 GROUP BY EXTRACT(YEAR FROM v.fecha_venta), EXTRACT(MONTH FROM v.fecha_venta)
 ORDER BY anio, mes;
@@ -51,7 +51,7 @@ ORDER BY anio, mes;
 -- O6. Como administrador quiero consultar los platos mas vendidos de cada mes
 -- para comprar los ingredientes mas usados en esos platos y reducir los desperdicios.
 SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
-p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
+       p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
 FROM Detalles_venta dv
 JOIN Ventas v ON v.id_venta = dv.id_venta
 JOIN Platos p ON p.id_plato = dv.id_plato
@@ -61,8 +61,8 @@ ORDER BY anio, mes, unidades_vendidas DESC;
 -- O7. Como administrador quiero consultar la lista de compras con los ingredientes que estan por debajo del stock minimo
 -- para saber que tengo que pedir a los proveedores antes de que se acaben.
 SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.stock_minimo,
-i.stock_minimo - inv.cantidad_disponible AS faltante,
-(i.stock_minimo - inv.cantidad_disponible) * i.costo_unitario AS costo_estimado
+       i.stock_minimo - inv.cantidad_disponible AS faltante,
+       (i.stock_minimo - inv.cantidad_disponible) * i.costo_unitario AS costo_estimado
 FROM Inventarios inv
 JOIN Ingredientes i ON i.id_ingrediente = inv.id_ingrediente
 WHERE inv.cantidad_disponible < i.stock_minimo
@@ -72,7 +72,7 @@ ORDER BY faltante DESC;
 -- para avisar a tiempo, reponer el ingrediente y no dejar de ofrecer esos platos.
 -- Un plato esta en riesgo si algun ingrediente de su receta esta por debajo del stock minimo.
 SELECT DISTINCT m.nombre AS menu, p.nombre AS plato, i.nombre AS ingrediente_en_riesgo,
-inv.cantidad_disponible, i.stock_minimo
+                inv.cantidad_disponible, i.stock_minimo
 FROM Menus m
 JOIN Menus_platos mp ON mp.id_menu = m.id_menu
 JOIN Platos p ON p.id_plato = mp.id_plato
@@ -153,7 +153,7 @@ ORDER BY p.nombre;
 -- O16. Como cliente quiero consultar las recetas
 -- para decidir que comer.
 SELECT r.Nombre AS receta, r.Descripcion, r.tiempo_preparacion,
-i.nombre AS ingrediente, ri.cantidad, i.unidad_medida
+       i.nombre AS ingrediente, ri.cantidad, i.unidad_medida
 FROM Recetas r
 JOIN Recetas_ingredientes ri ON ri.id_receta = r.id_receta
 JOIN Ingredientes i ON i.id_ingrediente = ri.id_ingrediente
@@ -164,7 +164,7 @@ ORDER BY r.Nombre, i.nombre;
 -- margen_minimo es lo que sobra del ingrediente mas justo para una porcion:
 -- si es negativo el plato no esta disponible porque falta ese ingrediente.
 SELECT p.nombre AS plato, COUNT(*) AS ingredientes,
-MIN(inv.cantidad_disponible - ri.cantidad) AS margen_minimo
+       MIN(inv.cantidad_disponible - ri.cantidad) AS margen_minimo
 FROM Platos p
 JOIN Recetas_ingredientes ri ON ri.id_receta = p.id_receta
 JOIN Inventarios inv ON inv.id_ingrediente = ri.id_ingrediente

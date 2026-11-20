@@ -1,5 +1,4 @@
 
-
 -- Tablas
 CREATE TABLE Proveedores (
     id_proveedor  SERIAL,

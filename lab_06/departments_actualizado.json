@@ -1,0 +1,334 @@
+[
+  {
+    "Code": "CS",
+    "Title": "Computer Science",
+    "Chair": {
+      "Professor": {
+        "First_Name": "Jennifer",
+        "Last_Name": "Widom"
+      }
+    },
+    "Courses": [
+      {
+        "Number": "CS106A",
+        "Enrollment": 1070,
+        "Title": "Programming Methodology",
+        "Description": "Introduction to the engineering of computer applications emphasizing modern software engineering principles.",
+        "Instructors": {
+          "Lecturers": [
+            {
+              "First_Name": "Jerry",
+              "Middle_Initial": "R.",
+              "Last_Name": "Cain"
+            }
+          ],
+          "Professors": [
+            {
+              "First_Name": "Eric",
+              "Last_Name": "Roberts"
+            },
+            {
+              "First_Name": "Mehran",
+              "Last_Name": "Sahami"
+            }
+          ]
+        }
+      },
+      {
+        "Number": "CS106B",
+        "Enrollment": 620,
+        "Title": "Programming Abstractions",
+        "Description": "Abstraction and its relation to programming.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Eric",
+              "Last_Name": "Roberts"
+            }
+          ],
+          "Lecturers": [
+            {
+              "First_Name": "Jerry",
+              "Middle_Initial": "R.",
+              "Last_Name": "Cain"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS106A"
+          ]
+        }
+      },
+      {
+        "Number": "CS107",
+        "Enrollment": 500,
+        "Title": "Computer Organization and Systems",
+        "Description": "Introduction to the fundamental concepts of computer systems.",
+        "Instructors": {
+          "Lecturers": [
+            {
+              "First_Name": "Julie",
+              "Last_Name": "Zelenski"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS106B"
+          ]
+        }
+      },
+      {
+        "Number": "CS109",
+        "Enrollment": 280,
+        "Title": "Introduction to Probability for Computer Scientists",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Mehran",
+              "Last_Name": "Sahami"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS106B"
+          ]
+        }
+      },
+      {
+        "Number": "CS124",
+        "Enrollment": 60,
+        "Title": "From Languages to Information",
+        "Description": "Natural language processing. Cross-listed as LING180.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Dan",
+              "Last_Name": "Jurafsky"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS107",
+            "CS109"
+          ],
+          "Average": 4.0
+        }
+      },
+      {
+        "Number": "CS143",
+        "Enrollment": 90,
+        "Title": "Compilers",
+        "Description": "Principles and practices for design and implementation of compilers and interpreters.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Alex",
+              "Middle_Initial": "S.",
+              "Last_Name": "Aiken"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS107"
+          ],
+          "Semester": 4,
+          "Average": 3.5
+        }
+      },
+      {
+        "Number": "CS145",
+        "Enrollment": 130,
+        "Title": "Introduction to Databases",
+        "Description": "Database design and use of database management systems for applications.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Jennifer",
+              "Last_Name": "Widom"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS107"
+          ]
+        }
+      },
+      {
+        "Number": "CS221",
+        "Enrollment": 180,
+        "Title": "Artificial Intelligence: Principles and Techniques",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Andrew",
+              "Last_Name": "Ng"
+            },
+            {
+              "First_Name": "Sebastian",
+              "Last_Name": "Thrun"
+            }
+          ]
+        }
+      },
+      {
+        "Number": "CS228",
+        "Enrollment": 110,
+        "Title": "Structured Probabilistic Models: Principles and Techniques",
+        "Description": "Using probabilistic modeling languages to represent complex domains.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Daphne",
+              "Last_Name": "Koller"
+            }
+          ]
+        }
+      },
+      {
+        "Number": "CS229",
+        "Enrollment": 320,
+        "Title": "Machine Learning",
+        "Description": "A broad introduction to machine learning and statistical pattern recognition.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Andrew",
+              "Last_Name": "Ng"
+            }
+          ]
+        }
+      },
+      {
+        "Number": "CS161",
+        "Enrollment": 250,
+        "Title": "Design and Analysis of Algorithms",
+        "Description": "Worst and average case analysis of algorithms.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Tim",
+              "Last_Name": "Roughgarden"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS106B",
+            "CS109"
+          ],
+          "Semester": 3
+        }
+      }
+    ]
+  },
+  {
+    "Code": "EE",
+    "Title": "Electrical Engineering",
+    "Chair": {
+      "Professor": {
+        "First_Name": "Mark",
+        "Middle_Initial": "A.",
+        "Last_Name": "Horowitz"
+      }
+    },
+    "Courses": [
+      {
+        "Number": "EE108A",
+        "Title": "Digital Systems I",
+        "Description": "Digital circuit, logic, and system design.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Subhasish",
+              "Last_Name": "Mitra"
+            }
+          ]
+        }
+      },
+      {
+        "Number": "EE108B",
+        "Title": "Digital Systems II",
+        "Description": "The design of processor-based digital systems.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "William",
+              "Middle_Initial": "J.",
+              "Last_Name": "Dally"
+            },
+            {
+              "First_Name": "Oyekunle",
+              "Last_Name": "Olukotun"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "EE108A",
+            "CS106B"
+          ]
+        }
+      },
+      {
+        "Number": "EE102A",
+        "Enrollment": 120,
+        "Title": "Signals and Systems",
+        "Description": "Continuous and discrete time signals and linear systems.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Stephen",
+              "Middle_Initial": "P.",
+              "Last_Name": "Boyd"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "EE108A"
+          ],
+          "Average": 3.0
+        }
+      }
+    ]
+  },
+  {
+    "Code": "LING",
+    "Title": "Linguistics",
+    "Chair": {
+      "Professor": {
+        "First_Name": "Beth",
+        "Last_Name": "Levin"
+      }
+    },
+    "Courses": [
+      {
+        "Number": "LING180",
+        "Enrollment": 60,
+        "Title": "From Languages to Information",
+        "Description": "Natural language processing. Cross-listed as CS124.",
+        "Instructors": {
+          "Professors": [
+            {
+              "First_Name": "Dan",
+              "Last_Name": "Jurafsky"
+            }
+          ]
+        },
+        "Prerequisites": {
+          "Prereq": [
+            "CS107",
+            "CS109"
+          ],
+          "Semester": 1
+        }
+      }
+    ]
+  }
+]

@@ -104,7 +104,7 @@ INSERT INTO Inspecciones
 ('INS-0006', '2026-07-08', 'Aprobado',        0,   NULL,                          19, 5,  NULL),
 ('INS-0007', '2026-09-22', 'Rechazo parcial', 3,   'Temperatura fuera de rango',  3,  6,  6),
 ('INS-0008', '2026-09-05', 'Aprobado',        0,   NULL,                          5,  7,  NULL),
-('INS-0009', '2026-07-13', 'Rechazo total',   10,  'Llegó en mal estado',         20, 7,  15),
+('INS-0009', '2026-07-13', 'Rechazo parcial', 2,   'Llegó en mal estado',         20, 7,  15),
 ('INS-0010', '2026-09-06', 'Aprobado',        0,   NULL,                          6,  8,  NULL),
 ('INS-0011', '2026-07-18', 'Rechazo parcial', 2,   'Empaque roto',                21, 8,  10),
 ('INS-0012', '2026-09-07', 'Rechazo total',   12,  'Plaga detectada en el lote',  7,  9,  11),

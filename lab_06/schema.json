@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Departamentos",
+  "type": "array",
+  "items": { "$ref": "#/$defs/department" },
+  "$defs": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "First_Name": { "type": "string" },
+        "Middle_Initial": { "type": "string" },
+        "Last_Name": { "type": "string" }
+      },
+      "required": ["First_Name", "Last_Name"],
+      "additionalProperties": false
+    },
+    "department": {
+      "type": "object",
+      "properties": {
+        "Code": { "type": "string" },
+        "Title": { "type": "string" },
+        "Chair": {
+          "type": "object",
+          "properties": { "Professor": { "$ref": "#/$defs/person" } },
+          "required": ["Professor"],
+          "additionalProperties": false
+        },
+        "Courses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/course" }
+        }
+      },
+      "required": ["Code", "Title", "Chair", "Courses"],
+      "additionalProperties": false
+    },
+    "course": {
+      "type": "object",
+      "properties": {
+        "Number": { "type": "string" },
+        "Enrollment": { "type": "integer", "minimum": 0 },
+        "Title": { "type": "string" },
+        "Description": { "type": "string" },
+        "Instructors": {
+          "type": "object",
+          "properties": {
+            "Professors": { "type": "array", "items": { "$ref": "#/$defs/person" } },
+            "Lecturers": { "type": "array", "items": { "$ref": "#/$defs/person" } }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        },
+        "Prerequisites": {
+          "type": "object",
+          "properties": {
+            "Prereq": { "type": "array", "items": { "type": "string" } },
+            "Semester": { "type": "integer" },
+            "Average": { "type": "number" }
+          },
+          "required": ["Prereq"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["Number", "Title", "Instructors"],
+      "additionalProperties": false
+    }
+  }
+}

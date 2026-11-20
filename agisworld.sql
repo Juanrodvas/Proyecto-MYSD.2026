@@ -1040,3 +1040,195 @@ SELECT sv_junta.co_estado_habilidades(7)
 FETCH ALL FROM   co_estado_habilidades_cursor;
 COMMIT;
 
+
+
+
+
+{
+    "descripcion": "Fundamentos de modelado con UML",
+    "duracion_horas":40,
+    "nivel": "basico",
+    "habilidades": [
+        {"nombre_corto": "UML", "tipo": "conocimiento"}
+    ]
+}
+
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Detalle de curso",
+    "type": "object",
+    "properties": {
+        "descripcion": { "type": "string", "minLength": 1 
+},
+    "duracion_horas": { "type": "integer", "minimum": 1 
+},
+    "nivel": { "type": "string", "enum": ["basico", "intermedio", "avanzado"] 
+},
+    "habilidades": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+        "type": "object",
+        "properties": {
+            "nombre_corto": { "type": "string", "minLength": 1 },
+            "tipo": { "type": "string", "enum": ["conocimiento", "destreza", "actitud"] }
+        },
+        "required": ["nombre_corto", "tipo"],
+        "additionalProperties": false
+    }
+    }
+},
+    "required": ["descripcion", "duracion_horas", "nivel", "habilidades"],
+    "additionalProperties": false
+}
+
+
+{
+    "descripcion": "Fundamentos de modelado con UML",
+    "duracion_horas": "cuarenta",
+    "nivel": "experto",
+    "habilidades": [
+        {"nombre_corto": "UML", "tipo": "saber"}
+    ]
+}
+
+
+
+
+-- CASO 1. Paso 2: la columna cursos.detalle pasa de TEXT a JSONB
+
+-- 1. Cambiar el tipo. El texto que ya existia queda dentro de "descripcion".
+ALTER TABLE cursos
+ALTER COLUMN detalle TYPE JSONB
+USING jsonb_build_object('descripcion', detalle);
+
+-- 2. Completar la ficha de los 5 cursos que ya existen.
+UPDATE cursos SET detalle = '{"descripcion": "Fundamentos de modelado con UML", "duracion_horas": 40, "nivel": "basico",
+"habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento"}]}' WHERE codigo = 'C001';
+UPDATE cursos SET detalle = '{"descripcion": "Diseño y normalización de bases de datos relacionales", "duracion_horas": 60, "nivel": "intermedio",
+"habilidades": [{"nombre_corto": "SQL", "tipo": "conocimiento"}, {"nombre_corto": "SQL", "tipo": "destreza"}]}' WHERE codigo = 'C002';
+UPDATE cursos SET detalle = '{"descripcion": "Practicas de liderazgo en equipos agiles", "duracion_horas": 30, "nivel": "intermedio",
+"habilidades": [{"nombre_corto": "LIDER", "tipo": "actitud"}]}' WHERE codigo = 'C003';
+UPDATE cursos SET detalle = '{"descripcion": "Introduccion al aprendizaje automatico", "duracion_horas": 80, "nivel": "avanzado",
+"habilidades": [{"nombre_corto": "ML", "tipo": "conocimiento"}, {"nombre_corto": "ML", "tipo": "destreza"}]}' WHERE codigo = 'C004';
+UPDATE cursos SET detalle = '{"descripcion": "Estrategias de testing y QA", "duracion_horas": 24, "nivel": "basico",
+"habilidades": [{"nombre_corto": "TEST", "tipo": "destreza"}]}' WHERE codigo = 'C005';
+
+-- 3. Las reglas del JSON Schema, una por una.
+ALTER TABLE cursos ADD CONSTRAINT ck_detalle_objeto
+CHECK (jsonb_typeof(detalle) = 'object');
+
+ALTER TABLE cursos ADD CONSTRAINT ck_detalle_claves
+CHECK (detalle ?& ARRAY['descripcion', 'duracion_horas', 'nivel', 'habilidades']
+AND detalle - ARRAY['descripcion', 'duracion_horas', 'nivel', 'habilidades'] = '{}'::jsonb);
+
+ALTER TABLE cursos ADD CONSTRAINT ck_detalle_descripcion
+CHECK (jsonb_typeof(detalle -> 'descripcion') = 'string');
+
+ALTER TABLE cursos ADD CONSTRAINT ck_detalle_duracion
+CHECK (jsonb_typeof(detalle -> 'duracion_horas') = 'number'
+AND jsonb_path_match(detalle, '$.duracion_horas >= 1 && $.duracion_horas.floor() == $.duracion_horas'));
+
+ALTER TABLE cursos ADD CONSTRAINT ck_detalle_nivel
+CHECK (detalle ->> 'nivel' IN ('basico', 'intermedio', 'avanzado'));
+
+ALTER TABLE cursos ADD CONSTRAINT ck_detalle_habilidades
+CHECK (jsonb_typeof(detalle -> 'habilidades') = 'array'
+AND jsonb_array_length(detalle -> 'habilidades') >= 1
+AND NOT jsonb_path_exists(detalle,
+'$.habilidades[*] ? (!exists(@.nombre_corto) || !exists(@.tipo) || @.nombre_corto.type() != "string" || @.tipo.type() != "string" || (@.tipo != "conocimiento" && @.tipo != "destreza" && @.tipo != "actitud"))'));
+
+-- PoblarOK: estos cursos nuevos cumplen todas las reglas y entran.
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('C006', 'Arquitectura de Software',
+'{"descripcion": "Estilos y decisiones de arquitectura", "duracion_horas": 50, "nivel": "avanzado",
+"habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento"}, {"nombre_corto": "LIDER", "tipo": "actitud"}]}', FALSE),
+('C007', 'Introduccion a SQL',
+'{"descripcion": "Consultas basicas", "duracion_horas": 16, "nivel": "basico",
+"habilidades": [{"nombre_corto": "SQL", "tipo": "destreza"}]}', FALSE);
+
+-- PoblarNoOK: cada uno rompe una regla y la base lo rechaza.
+-- (a) Falta la clave "nivel"
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X001', 'Sin nivel', '{"descripcion": "x", "duracion_horas": 10, "habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento"}]}', FALSE);
+-- (b) duracion_horas es texto
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X002', 'Duracion texto', '{"descripcion": "x", "duracion_horas": "cuarenta", "nivel": "basico", "habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento"}]}', FALSE);
+-- (c) nivel fuera de los tres permitidos
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X003', 'Nivel invalido', '{"descripcion": "x", "duracion_horas": 10, "nivel": "experto", "habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento"}]}', FALSE);
+-- (d) tipo de habilidad invalido
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X004', 'Tipo invalido', '{"descripcion": "x", "duracion_horas": 10, "nivel": "basico", "habilidades": [{"nombre_corto": "UML", "tipo": "saber"}]}', FALSE);
+-- (e) lista de habilidades vacia
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X005', 'Sin habilidades', '{"descripcion": "x", "duracion_horas": 10, "nivel": "basico", "habilidades": []}', FALSE);
+-- (f) clave que el esquema no permite
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X006', 'Clave extra', '{"descripcion": "x", "duracion_horas": 10, "nivel": "basico", "precio": 100, "habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento"}]}', FALSE);
+
+
+-- CASO 1. Paso 3: consulta "Consultar habilidades de conocimiento"
+-- Para cada curso, las habilidades cuyo tipo es "conocimiento" (con su nombre completo).
+SELECT c.codigo, c.nombre AS curso,
+h ->> 'nombre_corto' AS habilidad_corto,
+hb.nombre AS habilidad
+FROM cursos c, jsonb_array_elements(c.detalle -> 'habilidades') AS h, habilidades hb
+WHERE h ->> 'tipo' = 'conocimiento'
+AND hb.nombrecorto = h ->> 'nombre_corto'
+ORDER BY c.codigo;
+
+-- La misma consulta con SQL + JSON Path (solo los nombres cortos).
+SELECT codigo, nombre AS curso,
+jsonb_path_query(detalle, '$.habilidades[*] ? (@.tipo == "conocimiento").nombre_corto') AS habilidad_corto
+FROM cursos
+ORDER BY codigo;
+
+-- CASO 1. Paso 4: se extiende el JSON. Cada habilidad ahora dice cuantas horas del curso le dedica.
+
+-- 1. Se completan los 6 cursos con el dato nuevo "horas" (la suma de horas de cada curso es su duracion_horas).
+UPDATE cursos SET detalle = '{"descripcion": "Fundamentos de modelado con UML", "duracion_horas": 40, "nivel": "basico",
+"habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento", "horas": 40}]}' WHERE codigo = 'C001';
+UPDATE cursos SET detalle = '{"descripcion": "Diseño y normalización de bases de datos relacionales", "duracion_horas": 60, "nivel": "intermedio",
+"habilidades": [{"nombre_corto": "SQL", "tipo": "conocimiento", "horas": 25}, {"nombre_corto": "SQL", "tipo": "destreza", "horas": 35}]}' WHERE codigo = 'C002';
+UPDATE cursos SET detalle = '{"descripcion": "Practicas de liderazgo en equipos agiles", "duracion_horas": 30, "nivel": "intermedio",
+"habilidades": [{"nombre_corto": "LIDER", "tipo": "actitud", "horas": 30}]}' WHERE codigo = 'C003';
+UPDATE cursos SET detalle = '{"descripcion": "Introduccion al aprendizaje automatico", "duracion_horas": 80, "nivel": "avanzado",
+"habilidades": [{"nombre_corto": "ML", "tipo": "conocimiento", "horas": 50}, {"nombre_corto": "ML", "tipo": "destreza", "horas": 30}]}' WHERE codigo = 'C004';
+UPDATE cursos SET detalle = '{"descripcion": "Estrategias de testing y QA", "duracion_horas": 24, "nivel": "basico",
+"habilidades": [{"nombre_corto": "TEST", "tipo": "destreza", "horas": 24}]}' WHERE codigo = 'C005';
+UPDATE cursos SET detalle = '{"descripcion": "Estilos y decisiones de arquitectura", "duracion_horas": 50, "nivel": "avanzado",
+"habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento", "horas": 30}, {"nombre_corto": "LIDER", "tipo": "actitud", "horas": 20}]}' WHERE codigo = 'C006';
+UPDATE cursos SET detalle = '{"descripcion": "Consultas basicas", "duracion_horas": 16, "nivel": "basico",
+"habilidades": [{"nombre_corto": "SQL", "tipo": "destreza", "horas": 16}]}' WHERE codigo = 'C007';
+
+-- 2. Regla nueva: toda habilidad trae "horas", un entero de 1 en adelante.
+ALTER TABLE cursos ADD CONSTRAINT ck_detalle_horas
+CHECK (NOT jsonb_path_exists(detalle,
+'$.habilidades[*] ? (!exists(@.horas) || @.horas.type() != "number" || @.horas < 1 || @.horas.floor() != @.horas)'));
+
+-- PoblarOK del dato nuevo
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('C008', 'Pruebas Automatizadas',
+'{"descripcion": "Automatizacion de pruebas", "duracion_horas": 36, "nivel": "intermedio",
+"habilidades": [{"nombre_corto": "TEST", "tipo": "conocimiento", "horas": 12}, {"nombre_corto": "TEST", "tipo": "destreza", "horas": 24}]}', FALSE);
+
+-- PoblarNoOK del dato nuevo
+-- (a) Una habilidad sin "horas"
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X007', 'Sin horas', '{"descripcion": "x", "duracion_horas": 10, "nivel": "basico", "habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento"}]}', FALSE);
+-- (b) "horas" negativas
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X008', 'Horas negativas', '{"descripcion": "x", "duracion_horas": 10, "nivel": "basico", "habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento", "horas": -5}]}', FALSE);
+-- (c) "horas" como texto
+INSERT INTO cursos (codigo, nombre, detalle, cerrado) VALUES
+('X009', 'Horas texto', '{"descripcion": "x", "duracion_horas": 10, "nivel": "basico", "habilidades": [{"nombre_corto": "UML", "tipo": "conocimiento", "horas": "diez"}]}', FALSE);
+
+-- Consulta nueva: cursos con al menos 20 horas dedicadas a habilidades de conocimiento.
+-- Sirve para escoger cursos de un plan de formacion segun cuanto conocimiento aportan.
+SELECT c.codigo, c.nombre AS curso, SUM((h ->> 'horas')::int) AS horas_conocimiento
+FROM cursos c, jsonb_array_elements(c.detalle -> 'habilidades') AS h
+WHERE h ->> 'tipo' = 'conocimiento'
+GROUP BY c.codigo, c.nombre
+HAVING SUM((h ->> 'horas')::int) >= 20
+ORDER BY horas_conocimiento DESC;

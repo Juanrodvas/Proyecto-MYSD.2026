@@ -1,12 +1,4 @@
--- ============================================================
--- Proyecto MYSD 2026 - Base de datos completa (PostgreSQL)
--- Orden: Tablas, Atributos, Primarias, Unicas, Foraneas, XTablas,
---        ConsultasOperativas, ConsultasGerenciales, PoblarOK,
---        PoblarNoOK, XPoblar, Tuplas, Disparadores, XDisparadores,
---        TuplasOK, TuplasNoOK, AccionesOK, DisparadoresOK,
---        DisparadoresNoOK, Componentes, XComponentes,
---        ComponentesOK y ComponentesNoOK
--- ============================================================
+
 
 -- Tablas
 CREATE TABLE Proveedores (
@@ -380,24 +372,24 @@ ADD CONSTRAINT fk_menu_plato_plato
 FOREIGN KEY (id_plato) REFERENCES Platos(id_plato);
 
 -- XTablas
-DROP TABLE IF EXISTS Menus_platos;
-DROP TABLE IF EXISTS Menus;
-DROP TABLE IF EXISTS Recetas_ingredientes;
-DROP TABLE IF EXISTS Movimientos_inventario;
-DROP TABLE IF EXISTS Desperdicios;
-DROP TABLE IF EXISTS Detalles_venta;
-DROP TABLE IF EXISTS Ventas;
-DROP TABLE IF EXISTS Detalles_compra;
-DROP TABLE IF EXISTS Compras;
-DROP TABLE IF EXISTS Inventarios;
-DROP TABLE IF EXISTS Platos;
-DROP TABLE IF EXISTS Meseros;
-DROP TABLE IF EXISTS Cocineros;
-DROP TABLE IF EXISTS Recetas;
-DROP TABLE IF EXISTS Ingredientes;
-DROP TABLE IF EXISTS Causas_desperdicio;
-DROP TABLE IF EXISTS Empleados;
-DROP TABLE IF EXISTS Proveedores;
+-- DROP TABLE IF EXISTS Menus_platos;
+-- DROP TABLE IF EXISTS Menus;
+-- DROP TABLE IF EXISTS Recetas_ingredientes;
+-- DROP TABLE IF EXISTS Movimientos_inventario;
+-- DROP TABLE IF EXISTS Desperdicios;
+-- DROP TABLE IF EXISTS Detalles_venta;
+-- DROP TABLE IF EXISTS Ventas;
+-- DROP TABLE IF EXISTS Detalles_compra;
+-- DROP TABLE IF EXISTS Compras;
+-- DROP TABLE IF EXISTS Inventarios;
+-- DROP TABLE IF EXISTS Platos;
+-- DROP TABLE IF EXISTS Meseros;
+-- DROP TABLE IF EXISTS Cocineros;
+-- DROP TABLE IF EXISTS Recetas;
+-- DROP TABLE IF EXISTS Ingredientes;
+-- DROP TABLE IF EXISTS Causas_desperdicio;
+-- DROP TABLE IF EXISTS Empleados;
+-- DROP TABLE IF EXISTS Proveedores;
 
 -- ConsultasOperativas
 
@@ -451,7 +443,7 @@ ORDER BY anio, mes;
 -- O6. Como administrador quiero consultar los platos mas vendidos de cada mes
 -- para comprar los ingredientes mas usados en esos platos y reducir los desperdicios.
 SELECT EXTRACT(YEAR FROM v.fecha_venta) AS anio, EXTRACT(MONTH FROM v.fecha_venta) AS mes,
-       p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
+p.nombre AS plato, SUM(dv.cantidad) AS unidades_vendidas
 FROM Detalles_venta dv
 JOIN Ventas v ON v.id_venta = dv.id_venta
 JOIN Platos p ON p.id_plato = dv.id_plato
@@ -509,7 +501,7 @@ SELECT i.nombre AS ingrediente, inv.cantidad_disponible, i.unidad_medida, i.Fech
 FROM Ingredientes i
 JOIN Inventarios inv ON inv.id_ingrediente = i.id_ingrediente
 WHERE inv.cantidad_disponible > 0
-  AND (i.Fecha_vencimiento IS NULL OR i.Fecha_vencimiento >= CURRENT_DATE)
+AND (i.Fecha_vencimiento IS NULL OR i.Fecha_vencimiento >= CURRENT_DATE)
 ORDER BY i.nombre;
 
 -- O12. Como empleado quiero consultar el inventario
@@ -1966,9 +1958,3 @@ ALTER TABLE Detalles_venta ENABLE TRIGGER USER;
 ALTER TABLE Compras ENABLE TRIGGER USER;
 ALTER TABLE Detalles_compra ENABLE TRIGGER USER;
 ALTER TABLE Desperdicios ENABLE TRIGGER USER;
-
-select i.nombre 
-
-
-select * from platos;
-select * from detalles_venta;
